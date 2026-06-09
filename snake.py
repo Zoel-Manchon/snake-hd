@@ -212,16 +212,25 @@ def game(wrap, difficulty):
                 game_over = True
                 play_sound("gameover")
 
-                # Quick red impact flash over the frozen scene before the panel.
+                # Quick red flash + screen shake over the frozen scene.
                 for alpha in (200, 150, 105, 65, 30, 0):
-                    draw_background(screen, WIDTH, HEIGHT, CELL_SIZE, HUD_HEIGHT, BG, GRID, HUD_BG, INK)
-                    draw_food(screen, food, CELL_SIZE, sprites)
-                    draw_active_bonus()
-                    draw_enemies(screen, enemies, CELL_SIZE, sprites)
-                    draw_snake(screen, snake, CELL_SIZE, sprites, direction)
-                    draw_hud(screen, score, high_score, enemies, font, big_font, INK)
-                    draw_overlay(screen, (220, 60, 60), alpha)
-                    draw_border(screen, WIDTH, HEIGHT, INK)
+                    buf = pygame.Surface((WIDTH, HEIGHT))
+                    draw_background(buf, WIDTH, HEIGHT, CELL_SIZE, HUD_HEIGHT, BG, GRID, HUD_BG, INK)
+                    draw_food(buf, food, CELL_SIZE, sprites)
+                    if bonus is not None:
+                        draw_bonus(buf, bonus, CELL_SIZE, sprites)
+                    draw_enemies(buf, enemies, CELL_SIZE, sprites)
+                    draw_snake(buf, snake, CELL_SIZE, sprites, direction)
+                    draw_hud(buf, score, high_score, enemies, font, big_font, INK)
+                    draw_overlay(buf, (220, 60, 60), alpha)
+                    draw_border(buf, WIDTH, HEIGHT, INK)
+
+                    # Shake follows the flash intensity, settling to zero.
+                    mag = int(14 * (alpha / 200))
+                    dx = random.randint(-mag, mag) if mag else 0
+                    dy = random.randint(-mag, mag) if mag else 0
+                    screen.fill(BG)
+                    screen.blit(buf, (dx, dy))
                     pygame.display.update()
                     clock.tick(40)
 

@@ -12,12 +12,13 @@ scalable code architecture.
 ## Features
 
 * Pixel-art sprite system (HD resolution)
+* Animated items — a pulsing apple, a twinkling gold bonus, and blinking mines
 * Two game modes: **Screen Wrap** or **Walls** (edges are deadly)
 * Three difficulties: **Easy / Normal / Hard** (speed, mine rate, starting mines)
 * **Combo multiplier** — chain quick eats for up to x5 points
 * **Bonus golden apple** — appears occasionally, worth extra points, stacks with your combo
 * Sound effects with an in-game mute toggle
-* Red death-flash feedback on game over
+* Red death-flash **and screen shake** on game over
 * Persistent high score saving
 * Enemy mines that spawn over time
 * Start menu, pause, and game-over / restart flow
@@ -80,7 +81,7 @@ snake-hd/
 │   ├── PressStart2P.ttf
 │   ├── PressStart2P-OFL.txt # Font license (SIL OFL 1.1)
 │   ├── screenshot.png
-│   ├── sprites/             # head, body, tail, food, bonus, mine
+│   ├── sprites/             # head, body, tail + animated food, bonus, mine
 │   └── sounds/              # eat, bonus, gameover
 │
 ├── game/
@@ -90,7 +91,7 @@ snake-hd/
 │   └── spawn_logic.py
 │
 ├── helpers/
-│   ├── helper_function.py   # Drawing helpers
+│   ├── helper_function.py   # Drawing helpers + sprite animation
 │   ├── storage.py           # High-score persistence
 │   └── audio.py             # Sound effects + mute
 │
@@ -101,7 +102,7 @@ snake-hd/
 
 ## Future Improvements
 
-* Animated sprites
+* Snake head animation (blinking eyes / tongue flick)
 * Particle effects
 * Multiple enemy types
 * Leaderboard system
