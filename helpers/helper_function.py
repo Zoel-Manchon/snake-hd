@@ -4,14 +4,40 @@ import pygame
 # Sprites are authored facing RIGHT. pygame.transform.rotate is counter-clockwise.
 ROT = {"RIGHT": 0, "UP": 90, "LEFT": 180, "DOWN": 270}
 
+# Single-image sprites vs. horizontal animation strips (square frames).
+STATIC_SPRITES = ("head", "body", "tail")
+ANIMATED_SPRITES = ("food", "bonus", "mine")
+ANIM_MS = 130   # milliseconds each animation frame is shown
+
 
 def load_sprites(cell_size, base_dir="assets/sprites"):
-    """Load every sprite once and pre-scale it to the grid cell size."""
+    """Load sprites, pre-scaled to the cell size.
+
+    Static sprites map to a single Surface; animated ones map to a list of
+    frame Surfaces sliced from a horizontal strip.
+    """
     sprites = {}
-    for name in ("head", "body", "tail", "food", "mine"):
+
+    for name in STATIC_SPRITES:
         image = pygame.image.load(os.path.join(base_dir, f"{name}.png")).convert_alpha()
         sprites[name] = pygame.transform.scale(image, (cell_size, cell_size))
+
+    for name in ANIMATED_SPRITES:
+        sheet = pygame.image.load(os.path.join(base_dir, f"{name}.png")).convert_alpha()
+        size = sheet.get_height()                      # square frames
+        count = max(1, sheet.get_width() // size)
+        frames = []
+        for i in range(count):
+            frame = sheet.subsurface(pygame.Rect(i * size, 0, size, size))
+            frames.append(pygame.transform.scale(frame, (cell_size, cell_size)))
+        sprites[name] = frames
+
     return sprites
+
+
+def current_frame(frames):
+    """Pick the active animation frame from a list, based on real time."""
+    return frames[(pygame.time.get_ticks() // ANIM_MS) % len(frames)]
 
 
 def draw_text(screen, text, x, y, font, big_font, color, use_big_font=False):
@@ -42,6 +68,14 @@ def draw_text_center(screen, text, y, font, color):
 
 def draw_border(screen, width, height, dark_green):
     pygame.draw.rect(screen, dark_green, pygame.Rect(0, 0, width, height), 6)
+
+
+def draw_overlay(screen, color, alpha):
+    """Blit a translucent full-screen color wash (used for the death flash)."""
+    overlay = pygame.Surface(screen.get_size())
+    overlay.fill(color)
+    overlay.set_alpha(alpha)
+    screen.blit(overlay, (0, 0))
 
 
 def draw_hud(screen, score, high_score, enemies, font, big_font, dark_green):
@@ -87,12 +121,31 @@ def _segment_dir(from_cell, to_cell):
 
 
 def draw_food(screen, food, cell_size, sprites):
-    screen.blit(sprites["food"], (food[0], food[1]))
+    screen.blit(current_frame(sprites["food"]), (food[0], food[1]))
+
+
+def draw_bonus(screen, bonus, cell_size, sprites):
+    screen.blit(current_frame(sprites["bonus"]), (bonus[0], bonus[1]))
+
+
+def draw_combo(screen, combo, combo_timer, window, font, color):
+    """Show 'COMBO xN' with a depleting timer bar, just below the HUD."""
+    label = font.render(f"COMBO x{combo}", True, color)
+    x = (screen.get_width() - label.get_width()) // 2
+    y = 90
+    screen.blit(label, (x, y))
+
+    bar_w = 220
+    frac = max(0.0, min(1.0, combo_timer / window))
+    bx = (screen.get_width() - bar_w) // 2
+    by = y + label.get_height() + 6
+    pygame.draw.rect(screen, color, pygame.Rect(bx, by, int(bar_w * frac), 6))
 
 
 def draw_enemies(screen, enemies, cell_size, sprites):
+    frame = current_frame(sprites["mine"])
     for enemy in enemies:
-        screen.blit(sprites["mine"], (enemy[0], enemy[1]))
+        screen.blit(frame, (enemy[0], enemy[1]))
 
 
 def draw_snake(screen, snake, cell_size, sprites, direction):

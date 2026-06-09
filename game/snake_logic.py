@@ -1,7 +1,7 @@
 from game.settings import WIDTH, HEIGHT, CELL_SIZE, HUD_HEIGHT
 
 
-def move_snake_head(snake, direction):
+def move_snake_head(snake, direction, wrap=True):
     head_x, head_y = snake[0]
 
     if direction == "UP":
@@ -13,14 +13,17 @@ def move_snake_head(snake, direction):
     elif direction == "RIGHT":
         head_x += CELL_SIZE
 
-    if head_x < 0:
-        head_x = WIDTH - CELL_SIZE
-    elif head_x >= WIDTH:
-        head_x = 0
+    # In wrap mode the head reappears on the opposite edge. In walls mode we
+    # leave the out-of-bounds position untouched so hit_wall() can catch it.
+    if wrap:
+        if head_x < 0:
+            head_x = WIDTH - CELL_SIZE
+        elif head_x >= WIDTH:
+            head_x = 0
 
-    if head_y < HUD_HEIGHT:
-        head_y = HEIGHT - CELL_SIZE
-    elif head_y >= HEIGHT:
-        head_y = HUD_HEIGHT
+        if head_y < HUD_HEIGHT:
+            head_y = HEIGHT - CELL_SIZE
+        elif head_y >= HEIGHT:
+            head_y = HUD_HEIGHT
 
     return [head_x, head_y]

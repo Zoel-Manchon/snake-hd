@@ -1,7 +1,5 @@
 """Persist the high score between runs in a small text file."""
 
-import os
-
 HIGH_SCORE_FILE = "highscore.txt"
 
 
