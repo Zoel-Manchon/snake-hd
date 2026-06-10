@@ -5,7 +5,7 @@ import pygame
 ROT = {"RIGHT": 0, "UP": 90, "LEFT": 180, "DOWN": 270}
 
 # Single-image sprites vs. horizontal animation strips (square frames).
-STATIC_SPRITES = ("head", "body", "tail", "pu_slowmo", "pu_double")
+STATIC_SPRITES = ("head", "body", "tail", "pu_slowmo", "pu_double", "pu_magnet")
 ANIMATED_SPRITES = ("food", "bonus", "mine")
 ANIM_MS = 130   # milliseconds each animation frame is shown
 

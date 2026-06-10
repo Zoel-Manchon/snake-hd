@@ -222,6 +222,19 @@ def game(wrap, difficulty):
                 if effects[name] <= 0:
                     del effects[name]
 
+            # Magnet: nudge the apple one cell toward the head (every other tick).
+            if "magnet" in effects and effects["magnet"] % 2 == 0:
+                hx, hy = snake[0]
+                fx, fy = food
+                if abs(hx - fx) >= abs(hy - fy) and hx != fx:
+                    target = [fx + (CELL_SIZE if hx > fx else -CELL_SIZE), fy]
+                elif hy != fy:
+                    target = [fx, fy + (CELL_SIZE if hy > fy else -CELL_SIZE)]
+                else:
+                    target = food
+                if target != food and target not in snake and target not in enemies:
+                    food = target
+
             direction = next_direction
             new_head = move_snake_head(snake, direction, wrap)
 

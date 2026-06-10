@@ -35,12 +35,13 @@ COMBO_WINDOW = 50   # ticks allowed between eats to keep the chain alive
 COMBO_MAX = 5       # highest multiplier reachable
 
 # --- Power-ups -----------------------------------------------------------
-POWERUP_KINDS = ["slowmo", "double"]   # available pickup types (more added over time)
+POWERUP_KINDS = ["slowmo", "double", "magnet"]   # available pickup types (more added over time)
 POWERUP_COOLDOWN = 220          # ticks between pickups appearing
 POWERUP_LIFETIME = 90           # ticks a pickup stays before vanishing
 POWERUP_EFFECTS = {
     "slowmo": {"duration": 150, "label": "SLOW-MO", "color": (86, 180, 225)},
     "double": {"duration": 150, "label": "x2 POINTS", "color": (190, 130, 240)},
+    "magnet": {"duration": 120, "label": "MAGNET", "color": (235, 130, 100)},
 }
 SLOW_FACTOR = 0.5               # speed multiplier while slow-mo is active
 SLOW_MIN = 6                    # never slower than this
