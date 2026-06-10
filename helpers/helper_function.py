@@ -5,7 +5,7 @@ import pygame
 ROT = {"RIGHT": 0, "UP": 90, "LEFT": 180, "DOWN": 270}
 
 # Single-image sprites vs. horizontal animation strips (square frames).
-STATIC_SPRITES = ("head", "body", "tail", "pu_slowmo")
+STATIC_SPRITES = ("head", "body", "tail", "pu_slowmo", "pu_double")
 ANIMATED_SPRITES = ("food", "bonus", "mine")
 ANIM_MS = 130   # milliseconds each animation frame is shown
 
@@ -132,10 +132,10 @@ def draw_powerup(screen, powerup, kind, cell_size, sprites):
     screen.blit(sprites["pu_" + kind], (powerup[0], powerup[1]))
 
 
-def draw_effect(screen, label, ticks, max_ticks, font, color):
+def draw_effect(screen, label, ticks, max_ticks, font, color, row=0):
     """Active-effect indicator (icon label + depleting bar) on the left."""
     img = font.render(label, True, color)
-    x, y = 30, 92
+    x, y = 30, 92 + row * 38
     screen.blit(img, (x, y))
     bar_w = 160
     frac = max(0.0, min(1.0, ticks / max_ticks))

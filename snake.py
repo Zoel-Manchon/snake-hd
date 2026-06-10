@@ -265,15 +265,16 @@ def game(wrap, difficulty):
             snake.insert(0, new_head)
 
             if will_grow:
+                mult = 2 if "double" in effects else 1
                 if ate_bonus:
-                    score += BONUS_POINTS * combo
+                    score += BONUS_POINTS * combo * mult
                     play_sound("bonus")
                     bonus = None
                     combo_timer = COMBO_WINDOW   # keep the chain alive
                 else:
                     # Consecutive quick eats raise the multiplier.
                     combo = min(combo + 1, COMBO_MAX) if combo_timer > 0 else 1
-                    score += combo
+                    score += combo * mult
                     play_sound("eat")
                     combo_timer = COMBO_WINDOW
 
@@ -307,9 +308,9 @@ def game(wrap, difficulty):
             draw_hud(screen, score, high_score, enemies, font, big_font, INK)
             if combo > 1:
                 draw_combo(screen, combo, combo_timer, COMBO_WINDOW, font, ACCENT)
-            for name, ticks in effects.items():
+            for i, (name, ticks) in enumerate(effects.items()):
                 cfg = POWERUP_EFFECTS[name]
-                draw_effect(screen, cfg["label"], ticks, cfg["duration"], font, cfg["color"])
+                draw_effect(screen, cfg["label"], ticks, cfg["duration"], font, cfg["color"], row=i)
             if is_muted():
                 draw_text_center(screen, "MUTED", HEIGHT - 36, font, (120, 124, 150))
             draw_border(screen, WIDTH, HEIGHT, INK)
