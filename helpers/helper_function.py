@@ -5,7 +5,7 @@ import pygame
 ROT = {"RIGHT": 0, "UP": 90, "LEFT": 180, "DOWN": 270}
 
 # Single-image sprites vs. horizontal animation strips (square frames).
-STATIC_SPRITES = ("head", "body", "tail")
+STATIC_SPRITES = ("head", "body", "tail", "pu_slowmo")
 ANIMATED_SPRITES = ("food", "bonus", "mine")
 ANIM_MS = 130   # milliseconds each animation frame is shown
 
@@ -126,6 +126,20 @@ def draw_food(screen, food, cell_size, sprites):
 
 def draw_bonus(screen, bonus, cell_size, sprites):
     screen.blit(current_frame(sprites["bonus"]), (bonus[0], bonus[1]))
+
+
+def draw_powerup(screen, powerup, kind, cell_size, sprites):
+    screen.blit(sprites["pu_" + kind], (powerup[0], powerup[1]))
+
+
+def draw_effect(screen, label, ticks, max_ticks, font, color):
+    """Active-effect indicator (icon label + depleting bar) on the left."""
+    img = font.render(label, True, color)
+    x, y = 30, 92
+    screen.blit(img, (x, y))
+    bar_w = 160
+    frac = max(0.0, min(1.0, ticks / max_ticks))
+    pygame.draw.rect(screen, color, pygame.Rect(x, y + img.get_height() + 6, int(bar_w * frac), 6))
 
 
 def draw_combo(screen, combo, combo_timer, window, font, color):

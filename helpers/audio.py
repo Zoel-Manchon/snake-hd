@@ -21,7 +21,7 @@ def init_audio(base_dir="assets/sounds"):
         _enabled = False
         return
 
-    for name in ("eat", "gameover", "bonus"):
+    for name in ("eat", "gameover", "bonus", "powerup"):
         try:
             _sounds[name] = pygame.mixer.Sound(os.path.join(base_dir, f"{name}.wav"))
         except (pygame.error, FileNotFoundError):

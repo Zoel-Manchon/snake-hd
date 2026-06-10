@@ -10,6 +10,8 @@ from helpers.helper_function import (
     draw_game_over_panel,
     draw_food,
     draw_bonus,
+    draw_powerup,
+    draw_effect,
     draw_combo,
     draw_enemies,
     draw_snake,
@@ -107,6 +109,11 @@ def game(wrap, difficulty):
         bonus_timer = 0       # ticks remaining before it vanishes
         combo = 1             # current score multiplier
         combo_timer = 0       # ticks left to keep the combo alive
+        powerup = None        # pickup position on the board, or None
+        powerup_kind = None   # which power-up the current pickup grants
+        powerup_life = 0      # ticks before the pickup vanishes
+        spawn_cooldown = POWERUP_COOLDOWN  # ticks until the next pickup
+        effects = {}          # active timed effects -> ticks remaining
 
         # Initial mines placed below the snake's starting row (out of its path),
         # scaled by the chosen difficulty.
@@ -196,6 +203,25 @@ def game(wrap, difficulty):
                 if combo_timer == 0:
                     combo = 1
 
+            # Power-up pickup: appears on a cooldown, then vanishes if ignored.
+            if powerup is None:
+                spawn_cooldown -= 1
+                if spawn_cooldown <= 0:
+                    powerup = random_safe_position(snake, food, enemies)
+                    powerup_kind = random.choice(POWERUP_KINDS)
+                    powerup_life = POWERUP_LIFETIME
+            else:
+                powerup_life -= 1
+                if powerup_life <= 0:
+                    powerup = None
+                    spawn_cooldown = POWERUP_COOLDOWN
+
+            # Tick down any active effects.
+            for name in list(effects):
+                effects[name] -= 1
+                if effects[name] <= 0:
+                    del effects[name]
+
             direction = next_direction
             new_head = move_snake_head(snake, direction, wrap)
 
@@ -264,14 +290,26 @@ def game(wrap, difficulty):
             else:
                 snake.pop()
 
+            # Collect a power-up if the head lands on it (does not grow the snake).
+            if powerup is not None and new_head == powerup:
+                effects[powerup_kind] = POWERUP_EFFECTS[powerup_kind]["duration"]
+                play_sound("powerup")
+                powerup = None
+                spawn_cooldown = POWERUP_COOLDOWN
+
             draw_food(screen, food, CELL_SIZE, sprites)
             draw_active_bonus()
+            if powerup is not None:
+                draw_powerup(screen, powerup, powerup_kind, CELL_SIZE, sprites)
             draw_enemies(screen, enemies, CELL_SIZE, sprites)
             draw_snake(screen, snake, CELL_SIZE, sprites, direction)
 
             draw_hud(screen, score, high_score, enemies, font, big_font, INK)
             if combo > 1:
                 draw_combo(screen, combo, combo_timer, COMBO_WINDOW, font, ACCENT)
+            for name, ticks in effects.items():
+                cfg = POWERUP_EFFECTS[name]
+                draw_effect(screen, cfg["label"], ticks, cfg["duration"], font, cfg["color"])
             if is_muted():
                 draw_text_center(screen, "MUTED", HEIGHT - 36, font, (120, 124, 150))
             draw_border(screen, WIDTH, HEIGHT, INK)
@@ -280,6 +318,8 @@ def game(wrap, difficulty):
 
             # Speed scales with score but is capped per difficulty.
             speed = min(base_speed + score, speed_cap)
+            if "slowmo" in effects:
+                speed = max(SLOW_MIN, int(speed * SLOW_FACTOR))
             clock.tick(speed)
 
 
