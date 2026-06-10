@@ -7,7 +7,8 @@ modular, sprite-based retro arcade game with persistent high scores, custom
 graphics, sound, selectable game modes and difficulty, a combo system, and a
 scalable code architecture.
 
-![Snake HD](assets/screenshot.png)
+![Snake HD](docs/screenshots/snake_hd.gif)
+
 
 ## Features
 
