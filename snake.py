@@ -15,13 +15,14 @@ from helpers.helper_function import (
     draw_combo,
     draw_enemies,
     draw_snake,
+    draw_fps,
     load_sprites,
 )
 
 from helpers.storage import load_high_score, save_high_score
 from helpers.audio import init_audio, play_sound, toggle_mute, is_muted
 from helpers.fx import ParticleSystem, FloatingTextSystem
-from helpers.ledger import record_score
+from helpers.ledger import record_score, top_scores
 
 from game.settings import *
 from game.snake_logic import move_snake_head
@@ -40,6 +41,7 @@ init_audio()
 
 font = pygame.font.Font("assets/PressStart2P.ttf", 22)
 big_font = pygame.font.Font("assets/PressStart2P.ttf", 44)
+small_font = pygame.font.Font("assets/PressStart2P.ttf", 14)
 
 # Load the sprite set once (needs the display to exist for convert_alpha).
 sprites = load_sprites(CELL_SIZE)
@@ -134,6 +136,7 @@ def game(wrap, difficulty):
 
         fx.clear()
         popups.clear()
+        leaderboard = []   # filled in from the ledger when the run ends
 
         running = True
         game_over = False
@@ -182,7 +185,8 @@ def game(wrap, difficulty):
                 draw_enemies(screen, enemies, CELL_SIZE, sprites)
                 draw_snake(screen, snake, CELL_SIZE, sprites, direction)
                 draw_hud(screen, score, high_score, enemies, font, big_font, INK)
-                draw_game_over_panel(screen, score, high_score, font, big_font, HUD_BG, INK)
+                draw_game_over_panel(screen, score, high_score, font, big_font, HUD_BG, INK, leaderboard, ACCENT)
+                draw_fps(screen, clock, small_font)
                 draw_border(screen, WIDTH, HEIGHT, INK)
                 pygame.display.update()
                 clock.tick(15)
@@ -192,6 +196,7 @@ def game(wrap, difficulty):
                 draw_hud(screen, score, high_score, enemies, font, big_font, INK)
                 draw_text_center(screen, "PAUSED", 340, big_font, ACCENT)
                 draw_text_center(screen, "Press P to resume", 430, font, INK)
+                draw_fps(screen, clock, small_font)
                 draw_border(screen, WIDTH, HEIGHT, INK)
                 pygame.display.update()
                 clock.tick(5)
@@ -265,7 +270,8 @@ def game(wrap, difficulty):
             if wall_death or hit_self(new_head, body_to_check) or hit_enemy(new_head, enemies):
                 game_over = True
                 play_sound("gameover")
-                record_score(score)   # append this run to the hash-chain ledger
+                record_score(score, PLAYER_NAME)   # append this run to the hash-chain ledger
+                leaderboard = top_scores(5)         # for the game-over panel
 
                 # Burst of debris from the head where it died.
                 hx = snake[0][0] + CELL_SIZE // 2
@@ -367,6 +373,7 @@ def game(wrap, difficulty):
                 draw_effect(screen, cfg["label"], ticks, cfg["duration"], font, cfg["color"], row=i)
             if is_muted():
                 draw_text_center(screen, "MUTED", HEIGHT - 36, font, (120, 124, 150))
+            draw_fps(screen, clock, small_font)
             draw_border(screen, WIDTH, HEIGHT, INK)
 
             pygame.display.update()

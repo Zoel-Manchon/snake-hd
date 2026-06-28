@@ -52,3 +52,6 @@ ENEMY_WEIGHTS = {"mine": 5, "drifter": 3, "blinker": 2}
 DRIFTER_INTERVAL = 14   # ticks between a drifter's one-cell moves (lower = faster)
 BLINKER_PERIOD = 90     # full solid+faded cycle length, in ticks
 BLINKER_SOLID = 58      # ticks of each cycle the blinker is solid (deadly)
+
+# --- Leaderboard ---------------------------------------------------------
+PLAYER_NAME = "ZOEL"    # your handle as it appears on the hash-chain leaderboard
