@@ -20,8 +20,11 @@ scalable code architecture.
 * **Bonus golden apple** — appears occasionally, worth extra points, stacks with your combo
 * Sound effects with an in-game mute toggle
 * Red death-flash **and screen shake** on game over
+* **Particle bursts** on every eat, bonus, power-up, and death
+* **Floating score popups** (`+N`) that rise and fade where you eat
+* Animated snake head with a **flicking tongue**
 * Persistent high score saving
-* Enemy mines that spawn over time
+* **Three enemy types** — static **mines**, **drifters** that slide and bounce, and **blinkers** that phase between deadly and safe-to-pass
 * Start menu, pause, and game-over / restart flow
 * Modular code structure and a retro pixel font
 
@@ -103,9 +106,6 @@ snake-hd/
 
 ## Future Improvements
 
-* Snake head animation (blinking eyes / tongue flick)
-* Particle effects
-* Multiple enemy types
 * Leaderboard system
 * Mobile version
 

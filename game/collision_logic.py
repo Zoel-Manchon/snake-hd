@@ -6,7 +6,8 @@ def hit_self(new_head, snake):
 
 
 def hit_enemy(new_head, enemies):
-    return new_head in enemies
+    """Deadly only when the head lands on an enemy that's currently solid."""
+    return any(e.pos == new_head and e.is_solid() for e in enemies)
 
 
 def hit_wall(new_head):

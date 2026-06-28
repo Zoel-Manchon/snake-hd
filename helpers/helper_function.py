@@ -158,8 +158,52 @@ def draw_combo(screen, combo, combo_timer, window, font, color):
 
 def draw_enemies(screen, enemies, cell_size, sprites):
     frame = current_frame(sprites["mine"])
+    r = cell_size // 2 - 3
     for enemy in enemies:
-        screen.blit(frame, (enemy[0], enemy[1]))
+        x, y = enemy.pos
+        cx, cy = x + cell_size // 2, y + cell_size // 2
+
+        if enemy.kind == "blinker" and not enemy.is_solid():
+            # Faded + hollow ring: currently safe to pass through.
+            ghost = frame.copy()
+            ghost.set_alpha(70)
+            screen.blit(ghost, (x, y))
+            pygame.draw.circle(screen, (90, 150, 175), (cx, cy), r, 2)
+            continue
+
+        screen.blit(frame, (x, y))
+        if enemy.kind == "drifter":
+            pygame.draw.circle(screen, (90, 200, 220), (cx, cy), r, 2)   # moving
+        elif enemy.kind == "blinker":
+            pygame.draw.circle(screen, (235, 120, 90), (cx, cy), r, 2)   # solid = deadly now
+
+
+_DIR_VEC = {"RIGHT": (1, 0), "LEFT": (-1, 0), "UP": (0, -1), "DOWN": (0, 1)}
+
+
+def _draw_tongue(screen, head_cell, cell_size, direction):
+    """Flick a little forked tongue out of the head on a slow cycle."""
+    phase = pygame.time.get_ticks() % 1400
+    if phase > 220:                      # tongue only shows ~220ms of each 1.4s
+        return
+
+    dx, dy = _DIR_VEC[direction]
+    cx = head_cell[0] + cell_size // 2
+    cy = head_cell[1] + cell_size // 2
+    sx = cx + dx * (cell_size // 2 - 2)  # start at the front edge of the head
+    sy = cy + dy * (cell_size // 2 - 2)
+    reach = int(cell_size * 0.55)
+    ex = cx + dx * reach                 # tip of the tongue
+    ey = cy + dy * reach
+
+    fork = max(3, cell_size // 8)
+    px, py = -dy, dx                     # perpendicular, for the fork
+    red = (224, 64, 84)
+    pygame.draw.line(screen, red, (sx, sy), (ex, ey), 3)
+    pygame.draw.line(screen, red, (ex, ey),
+                     (ex + dx * fork - px * fork, ey + dy * fork - py * fork), 3)
+    pygame.draw.line(screen, red, (ex, ey),
+                     (ex + dx * fork + px * fork, ey + dy * fork + py * fork), 3)
 
 
 def draw_snake(screen, snake, cell_size, sprites, direction):
@@ -175,3 +219,5 @@ def draw_snake(screen, snake, cell_size, sprites, direction):
             image = sprites["body"]
 
         screen.blit(image, (part[0], part[1]))
+
+    _draw_tongue(screen, snake[0], cell_size, direction)

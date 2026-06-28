@@ -1,6 +1,7 @@
 import random
 
 from game.settings import WIDTH, HEIGHT, CELL_SIZE, HUD_HEIGHT
+from game.enemies import Enemy, weighted_choice
 
 
 def random_position():
@@ -10,12 +11,15 @@ def random_position():
 
 
 def random_safe_position(snake, food, enemies):
+    """A free cell, avoiding the snake, the food, and every enemy cell."""
+    occupied = {tuple(e.pos) for e in enemies}
     while True:
         position = random_position()
-
-        if position not in snake and position != food and position not in enemies:
+        if position not in snake and position != food and tuple(position) not in occupied:
             return position
 
 
 def spawn_enemy(enemies, snake, food):
-    enemies.append(random_safe_position(snake, food, enemies))
+    """Add a new enemy of a randomly weighted kind in a free cell."""
+    pos = random_safe_position(snake, food, enemies)
+    enemies.append(Enemy(pos, weighted_choice()))

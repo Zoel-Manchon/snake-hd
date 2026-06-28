@@ -20,11 +20,14 @@ from helpers.helper_function import (
 
 from helpers.storage import load_high_score, save_high_score
 from helpers.audio import init_audio, play_sound, toggle_mute, is_muted
+from helpers.fx import ParticleSystem, FloatingTextSystem
+from helpers.ledger import record_score
 
 from game.settings import *
 from game.snake_logic import move_snake_head
 from game.collision_logic import hit_self, hit_enemy, hit_wall
 from game.spawn_logic import random_position, random_safe_position, spawn_enemy
+from game.enemies import Enemy
 
 pygame.init()
 
@@ -42,6 +45,10 @@ big_font = pygame.font.Font("assets/PressStart2P.ttf", 44)
 sprites = load_sprites(CELL_SIZE)
 
 high_score = load_high_score()
+
+# Visual FX: particle bursts and floating score popups (created once, cleared per run).
+fx = ParticleSystem(BG)
+popups = FloatingTextSystem(font)
 
 
 def start_menu():
@@ -118,12 +125,15 @@ def game(wrap, difficulty):
         # Initial mines placed below the snake's starting row (out of its path),
         # scaled by the chosen difficulty.
         enemies = [
-            [CELL_SIZE * (8 + 3 * i), HUD_HEIGHT + CELL_SIZE * 9]
+            Enemy([CELL_SIZE * (8 + 3 * i), HUD_HEIGHT + CELL_SIZE * 9], "mine")
             for i in range(start_enemies)
         ]
 
         enemy_timer = 0
         score = 0
+
+        fx.clear()
+        popups.clear()
 
         running = True
         game_over = False
@@ -193,6 +203,11 @@ def game(wrap, difficulty):
                 spawn_enemy(enemies, snake, food)
                 enemy_timer = 0
 
+            # Advance enemy behaviour: drifters slide, blinkers phase on/off.
+            occupied = {tuple(e.pos) for e in enemies}
+            for e in enemies:
+                e.update(snake, food, occupied)
+
             if bonus is not None:
                 bonus_timer -= 1
                 if bonus_timer <= 0:
@@ -225,14 +240,14 @@ def game(wrap, difficulty):
             # Magnet: nudge the apple one cell toward the head (every other tick).
             if "magnet" in effects and effects["magnet"] % 2 == 0:
                 hx, hy = snake[0]
-                fx, fy = food
-                if abs(hx - fx) >= abs(hy - fy) and hx != fx:
-                    target = [fx + (CELL_SIZE if hx > fx else -CELL_SIZE), fy]
-                elif hy != fy:
-                    target = [fx, fy + (CELL_SIZE if hy > fy else -CELL_SIZE)]
+                food_x, food_y = food
+                if abs(hx - food_x) >= abs(hy - food_y) and hx != food_x:
+                    target = [food_x + (CELL_SIZE if hx > food_x else -CELL_SIZE), food_y]
+                elif hy != food_y:
+                    target = [food_x, food_y + (CELL_SIZE if hy > food_y else -CELL_SIZE)]
                 else:
                     target = food
-                if target != food and target not in snake and target not in enemies:
+                if target != food and target not in snake and tuple(target) not in {tuple(e.pos) for e in enemies}:
                     food = target
 
             direction = next_direction
@@ -250,6 +265,12 @@ def game(wrap, difficulty):
             if wall_death or hit_self(new_head, body_to_check) or hit_enemy(new_head, enemies):
                 game_over = True
                 play_sound("gameover")
+                record_score(score)   # append this run to the hash-chain ledger
+
+                # Burst of debris from the head where it died.
+                hx = snake[0][0] + CELL_SIZE // 2
+                hy = snake[0][1] + CELL_SIZE // 2
+                fx.burst(hx, hy, (235, 70, 84), count=34, speed=9, size=6, life=32)
 
                 # Quick red flash + screen shake over the frozen scene.
                 for alpha in (200, 150, 105, 65, 30, 0):
@@ -260,6 +281,8 @@ def game(wrap, difficulty):
                         draw_bonus(buf, bonus, CELL_SIZE, sprites)
                     draw_enemies(buf, enemies, CELL_SIZE, sprites)
                     draw_snake(buf, snake, CELL_SIZE, sprites, direction)
+                    fx.update()
+                    fx.draw(buf)
                     draw_hud(buf, score, high_score, enemies, font, big_font, INK)
                     draw_overlay(buf, (220, 60, 60), alpha)
                     draw_border(buf, WIDTH, HEIGHT, INK)
@@ -279,17 +302,25 @@ def game(wrap, difficulty):
 
             if will_grow:
                 mult = 2 if "double" in effects else 1
+                gx = new_head[0] + CELL_SIZE // 2
+                gy = new_head[1] + CELL_SIZE // 2
                 if ate_bonus:
-                    score += BONUS_POINTS * combo * mult
+                    gained = BONUS_POINTS * combo * mult
+                    score += gained
                     play_sound("bonus")
                     bonus = None
                     combo_timer = COMBO_WINDOW   # keep the chain alive
+                    fx.burst(gx, gy, (255, 210, 70), count=24, speed=7.5, size=6)
+                    popups.add(gx, gy - 6, f"+{gained}", (255, 210, 70))
                 else:
                     # Consecutive quick eats raise the multiplier.
                     combo = min(combo + 1, COMBO_MAX) if combo_timer > 0 else 1
-                    score += combo * mult
+                    gained = combo * mult
+                    score += gained
                     play_sound("eat")
                     combo_timer = COMBO_WINDOW
+                    fx.burst(gx, gy, ACCENT, count=14)
+                    popups.add(gx, gy - 6, f"+{gained}", ACCENT)
 
                 if score > high_score:
                     high_score = score
@@ -308,6 +339,11 @@ def game(wrap, difficulty):
             if powerup is not None and new_head == powerup:
                 effects[powerup_kind] = POWERUP_EFFECTS[powerup_kind]["duration"]
                 play_sound("powerup")
+                pc = POWERUP_EFFECTS[powerup_kind]["color"]
+                gx = new_head[0] + CELL_SIZE // 2
+                gy = new_head[1] + CELL_SIZE // 2
+                fx.burst(gx, gy, pc, count=26, speed=8, size=6)
+                popups.add(gx, gy - 6, POWERUP_EFFECTS[powerup_kind]["label"], pc)
                 powerup = None
                 spawn_cooldown = POWERUP_COOLDOWN
 
@@ -317,6 +353,11 @@ def game(wrap, difficulty):
                 draw_powerup(screen, powerup, powerup_kind, CELL_SIZE, sprites)
             draw_enemies(screen, enemies, CELL_SIZE, sprites)
             draw_snake(screen, snake, CELL_SIZE, sprites, direction)
+
+            fx.update()
+            fx.draw(screen)
+            popups.update()
+            popups.draw(screen)
 
             draw_hud(screen, score, high_score, enemies, font, big_font, INK)
             if combo > 1:

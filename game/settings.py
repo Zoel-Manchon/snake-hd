@@ -45,3 +45,10 @@ POWERUP_EFFECTS = {
 }
 SLOW_FACTOR = 0.5               # speed multiplier while slow-mo is active
 SLOW_MIN = 6                    # never slower than this
+
+# --- Enemy types ---------------------------------------------------------
+# Spawn odds for each kind (relative weights). Initial mines are always plain.
+ENEMY_WEIGHTS = {"mine": 5, "drifter": 3, "blinker": 2}
+DRIFTER_INTERVAL = 14   # ticks between a drifter's one-cell moves (lower = faster)
+BLINKER_PERIOD = 90     # full solid+faded cycle length, in ticks
+BLINKER_SOLID = 58      # ticks of each cycle the blinker is solid (deadly)
