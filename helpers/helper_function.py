@@ -88,19 +88,43 @@ def draw_hud(screen, score, high_score, enemies, font, big_font, dark_green):
     screen.blit(danger_img, (width - danger_img.get_width() - 30, y))
 
 
-def draw_game_over_panel(screen, score, high_score, font, big_font, hud_bg, dark_green):
+def draw_game_over_panel(screen, score, high_score, font, big_font, hud_bg,
+                         dark_green, leaderboard=None, accent=None):
+    accent = accent or dark_green
     width, height = screen.get_width(), screen.get_height()
-    panel_width, panel_height = 620, 320
+    panel_width, panel_height = 640, 470
     panel_x = (width - panel_width) // 2
     panel_y = (height - panel_height) // 2
 
     pygame.draw.rect(screen, hud_bg, pygame.Rect(panel_x, panel_y, panel_width, panel_height), border_radius=12)
-    pygame.draw.rect(screen, dark_green, pygame.Rect(panel_x, panel_y, panel_width, panel_height), 5, border_radius=12)
+    pygame.draw.rect(screen, accent, pygame.Rect(panel_x, panel_y, panel_width, panel_height), 5, border_radius=12)
 
-    draw_text_center(screen, "GAME OVER", panel_y + 45, big_font, dark_green)
-    draw_text_center(screen, f"FINAL SCORE: {score}", panel_y + 140, font, dark_green)
-    draw_text_center(screen, f"BEST SCORE: {high_score}", panel_y + 185, font, dark_green)
-    draw_text_center(screen, "SPACE - RESTART", panel_y + 250, font, dark_green)
+    draw_text_center(screen, "GAME OVER", panel_y + 36, big_font, accent)
+    draw_text_center(screen, f"SCORE {score}", panel_y + 112, font, dark_green)
+    draw_text_center(screen, f"BEST {high_score}", panel_y + 150, font, dark_green)
+
+    pygame.draw.line(screen, accent, (panel_x + 40, panel_y + 190),
+                     (panel_x + panel_width - 40, panel_y + 190), 2)
+    draw_text_center(screen, "LEADERBOARD", panel_y + 202, font, accent)
+
+    rows = (leaderboard or [])[:5]
+    if rows:
+        for i, (name, sc) in enumerate(rows):
+            # Highlight the row(s) matching the run that just ended.
+            color = accent if sc == score else dark_green
+            line = f"{i + 1}. {sc:>5}  {name}"
+            img = font.render(line, True, color)
+            screen.blit(img, (panel_x + 78, panel_y + 242 + i * 34))
+    else:
+        draw_text_center(screen, "- no scores yet -", panel_y + 250, font, dark_green)
+
+    draw_text_center(screen, "SPACE - RESTART", panel_y + panel_height - 44, font, dark_green)
+
+
+def draw_fps(screen, clock, font):
+    """Small dim frames-per-second readout in the bottom-left corner."""
+    img = font.render(f"FPS {int(clock.get_fps())}", True, (120, 124, 150))
+    screen.blit(img, (12, screen.get_height() - img.get_height() - 12))
 
 
 # ---------------------------------------------------------------------------

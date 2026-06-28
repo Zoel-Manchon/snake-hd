@@ -23,6 +23,8 @@ scalable code architecture.
 * **Particle bursts** on every eat, bonus, power-up, and death
 * **Floating score popups** (`+N`) that rise and fade where you eat
 * Animated snake head with a **flicking tongue**
+* **Tamper-evident leaderboard** — each run is a SHA-256-linked block; the top 5 show on the game-over screen
+* On-screen **FPS** readout
 * Persistent high score saving
 * **Three enemy types** — static **mines**, **drifters** that slide and bounce, and **blinkers** that phase between deadly and safe-to-pass
 * Start menu, pause, and game-over / restart flow
@@ -106,7 +108,7 @@ snake-hd/
 
 ## Future Improvements
 
-* Leaderboard system
+* Online (server-backed) leaderboard
 * Mobile version
 
 ## Built With
