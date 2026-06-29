@@ -20,7 +20,7 @@ from helpers.helper_function import (
 )
 
 from helpers.storage import load_high_score, save_high_score
-from helpers.audio import init_audio, play_sound, toggle_mute, is_muted
+from helpers.audio import init_audio, play_sound, play_eat, start_music, toggle_mute, is_muted
 from helpers.fx import ParticleSystem, FloatingTextSystem
 from helpers.ledger import record_score, top_scores
 
@@ -38,6 +38,7 @@ pygame.display.set_caption("Snake HD")
 clock = pygame.time.Clock()
 
 init_audio()
+start_music()
 
 font = pygame.font.Font("assets/PressStart2P.ttf", 22)
 big_font = pygame.font.Font("assets/PressStart2P.ttf", 44)
@@ -274,7 +275,7 @@ def game(wrap, difficulty):
                     if wall_death or hit_self(new_head, body_to_check) or hit_enemy(new_head, enemies):
                         game_over = True
                         accumulator = 0.0
-                        play_sound("gameover")
+                        play_sound("death")
                         record_score(score, PLAYER_NAME)
                         leaderboard = top_scores(5)
 
@@ -324,7 +325,7 @@ def game(wrap, difficulty):
                             combo = min(combo + 1, COMBO_MAX) if combo_timer > 0 else 1
                             gained = combo * mult
                             score += gained
-                            play_sound("eat")
+                            play_eat(combo)
                             combo_timer = COMBO_WINDOW
                             fx.burst(gx, gy, ACCENT, count=14, speed=3.0, size=5, life=36)
                             popups.add(gx, gy - 6, f"+{gained}", ACCENT)
