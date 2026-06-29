@@ -79,7 +79,6 @@ def start_menu():
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
                 return None
 
             if event.type == pygame.KEYDOWN:
@@ -110,6 +109,7 @@ def game(wrap, difficulty):
     while True:
         # Grid-aligned starting state (all multiples of CELL_SIZE, below the HUD).
         snake = [[CELL_SIZE * 7, HUD_HEIGHT + CELL_SIZE * 5]]
+        prev_snake = [list(seg) for seg in snake]   # pre-step positions, for smooth rendering
         direction = "RIGHT"
         next_direction = "RIGHT"
 
@@ -136,6 +136,7 @@ def game(wrap, difficulty):
         fx.clear()
         popups.clear()
         leaderboard = []   # filled in from the ledger when the run ends
+        go_sel = 0         # game-over menu selection: 0 restart, 1 menu, 2 quit
 
         running = True
         game_over = False
@@ -156,8 +157,7 @@ def game(wrap, difficulty):
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    pygame.quit()
-                    return
+                    return "quit"
 
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_UP and direction != "DOWN":
@@ -175,14 +175,26 @@ def game(wrap, difficulty):
                     if event.key == pygame.K_m:
                         toggle_mute()
 
-                    if game_over and event.key == pygame.K_SPACE:
-                        restart = True
-                        running = False
+                    if game_over:
+                        if event.key in (pygame.K_UP, pygame.K_DOWN):
+                            go_sel = (go_sel + (1 if event.key == pygame.K_DOWN else -1)) % 3
+                        elif event.key == pygame.K_SPACE:
+                            restart = True          # quick restart
+                            running = False
+                        elif event.key == pygame.K_RETURN:
+                            if go_sel == 0:          # RESTART
+                                restart = True
+                                running = False
+                            elif go_sel == 1:        # MAIN MENU
+                                return "menu"
+                            else:                    # QUIT
+                                return "quit"
 
             if restart:
                 break
 
             # ---- simulation: advance whole steps based on elapsed time ----
+            render_positions = None   # smooth (interpolated) snake coords for rendering
             if not paused and not game_over:
                 speed = min(base_speed + score, speed_cap)
                 if "slowmo" in effects:
@@ -195,6 +207,7 @@ def game(wrap, difficulty):
 
                 while accumulator >= step_interval and not game_over:
                     accumulator -= step_interval
+                    prev_snake = [list(seg) for seg in snake]   # state before this step
 
                     enemy_timer += 1
                     if enemy_timer >= enemy_interval:
@@ -340,6 +353,20 @@ def game(wrap, difficulty):
                         powerup = None
                         spawn_cooldown = POWERUP_COOLDOWN
 
+                # Interpolate render positions so the snake glides between cells
+                # at 60 FPS instead of jumping a whole cell each step.
+                if not game_over:
+                    t = min(1.0, accumulator / step_interval)
+                    render_positions = []
+                    for i, cur in enumerate(snake):
+                        prv = prev_snake[i] if i < len(prev_snake) else cur
+                        dx = cur[0] - prv[0]
+                        dy = cur[1] - prv[1]
+                        if abs(dx) > CELL_SIZE or abs(dy) > CELL_SIZE:   # wrapped edge -> snap
+                            render_positions.append([cur[0], cur[1]])
+                        else:
+                            render_positions.append([prv[0] + dx * t, prv[1] + dy * t])
+
             # ---- per-frame visual updates (smooth at 60 FPS) ----
             fx.update()
             popups.update()
@@ -351,7 +378,7 @@ def game(wrap, difficulty):
             if powerup is not None and not game_over:
                 draw_powerup(screen, powerup, powerup_kind, CELL_SIZE, sprites)
             draw_enemies(screen, enemies, CELL_SIZE, sprites)
-            draw_snake(screen, snake, CELL_SIZE, sprites, direction)
+            draw_snake(screen, snake, CELL_SIZE, sprites, direction, render_positions)
             fx.draw(screen)
             if not game_over and not paused:
                 popups.draw(screen)
@@ -359,7 +386,7 @@ def game(wrap, difficulty):
             draw_hud(screen, score, high_score, enemies, font, big_font, INK)
 
             if game_over:
-                draw_game_over_panel(screen, score, high_score, font, big_font, HUD_BG, INK, leaderboard, ACCENT)
+                draw_game_over_panel(screen, score, high_score, font, big_font, HUD_BG, INK, leaderboard, ACCENT, go_sel)
             elif paused:
                 draw_text_center(screen, "PAUSED", 340, big_font, ACCENT)
                 draw_text_center(screen, "Press P to resume", 430, font, INK)
@@ -376,6 +403,16 @@ def game(wrap, difficulty):
             draw_border(screen, WIDTH, HEIGHT, INK)
             pygame.display.update()
 
-menu_choice = start_menu()
-if menu_choice is not None:
-    game(*menu_choice)
+def main():
+    while True:
+        choice = start_menu()
+        if choice is None:          # window closed at the menu
+            break
+        result = game(*choice)
+        if result == "quit":        # window closed or QUIT chosen in-game
+            break
+        # result == "menu" -> loop back to the start menu
+    pygame.quit()
+
+
+main()

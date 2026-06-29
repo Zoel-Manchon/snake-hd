@@ -230,5 +230,13 @@
     "score": 45,
     "prev_hash": "13e5fa89ac8ab27ad1d6f794d95b757c497afb14f5bd873d426aa73883f1fd60",
     "hash": "2235a13874db29fe609dc4eb5355cce382d937543b2c10676c1ac35d435fdd3a"
+  },
+  {
+    "index": 29,
+    "timestamp": "2026-06-29T16:00:06.147454+00:00",
+    "name": "ZOEL",
+    "score": 86,
+    "prev_hash": "2235a13874db29fe609dc4eb5355cce382d937543b2c10676c1ac35d435fdd3a",
+    "hash": "9cb5ba45be98631287451d22f393fb0af0ac662ffffb58a9c771b8d0e759e6a9"
   }
 ]

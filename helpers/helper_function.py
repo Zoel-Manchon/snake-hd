@@ -100,36 +100,42 @@ def draw_hud(screen, score, high_score, enemies, font, big_font, dark_green):
 
 
 def draw_game_over_panel(screen, score, high_score, font, big_font, hud_bg,
-                         dark_green, leaderboard=None, accent=None):
+                         dark_green, leaderboard=None, accent=None, selected=0):
     accent = accent or dark_green
     width, height = screen.get_width(), screen.get_height()
-    panel_width, panel_height = 640, 470
+    panel_width, panel_height = 640, 520
     panel_x = (width - panel_width) // 2
     panel_y = (height - panel_height) // 2
 
     pygame.draw.rect(screen, hud_bg, pygame.Rect(panel_x, panel_y, panel_width, panel_height), border_radius=12)
     pygame.draw.rect(screen, accent, pygame.Rect(panel_x, panel_y, panel_width, panel_height), 5, border_radius=12)
 
-    draw_text_center(screen, "GAME OVER", panel_y + 36, big_font, accent)
-    draw_text_center(screen, f"SCORE {score}", panel_y + 112, font, dark_green)
-    draw_text_center(screen, f"BEST {high_score}", panel_y + 150, font, dark_green)
+    draw_text_center(screen, "GAME OVER", panel_y + 34, big_font, accent)
+    draw_text_center(screen, f"SCORE {score}", panel_y + 104, font, dark_green)
+    draw_text_center(screen, f"BEST {high_score}", panel_y + 140, font, dark_green)
 
-    pygame.draw.line(screen, accent, (panel_x + 40, panel_y + 190),
-                     (panel_x + panel_width - 40, panel_y + 190), 2)
-    draw_text_center(screen, "LEADERBOARD", panel_y + 202, font, accent)
+    pygame.draw.line(screen, accent, (panel_x + 40, panel_y + 178),
+                     (panel_x + panel_width - 40, panel_y + 178), 2)
+    draw_text_center(screen, "LEADERBOARD", panel_y + 190, font, accent)
 
     rows = (leaderboard or [])[:5]
     if rows:
         for i, (name, sc) in enumerate(rows):
-            # Highlight the row(s) matching the run that just ended.
-            color = accent if sc == score else dark_green
-            line = f"{i + 1}. {sc:>5}  {name}"
-            img = font.render(line, True, color)
-            screen.blit(img, (panel_x + 78, panel_y + 242 + i * 34))
+            color = accent if sc == score else dark_green   # highlight this run
+            img = font.render(f"{i + 1}. {sc:>5}  {name}", True, color)
+            screen.blit(img, (panel_x + 78, panel_y + 226 + i * 30))
     else:
-        draw_text_center(screen, "- no scores yet -", panel_y + 250, font, dark_green)
+        draw_text_center(screen, "- no scores yet -", panel_y + 240, font, dark_green)
 
-    draw_text_center(screen, "SPACE - RESTART", panel_y + panel_height - 44, font, dark_green)
+    pygame.draw.line(screen, accent, (panel_x + 40, panel_y + 388),
+                     (panel_x + panel_width - 40, panel_y + 388), 2)
+
+    options = ["RESTART", "MAIN MENU", "QUIT"]
+    for i, label in enumerate(options):
+        if i == selected:
+            draw_text_center(screen, f"> {label} <", panel_y + 410 + i * 34, font, accent)
+        else:
+            draw_text_center(screen, label, panel_y + 410 + i * 34, font, dark_green)
 
 
 def draw_fps(screen, clock, font):
@@ -241,7 +247,10 @@ def _draw_tongue(screen, head_cell, cell_size, direction):
                      (ex + dx * fork + px * fork, ey + dy * fork + py * fork), 3)
 
 
-def draw_snake(screen, snake, cell_size, sprites, direction):
+def draw_snake(screen, snake, cell_size, sprites, direction, positions=None):
+    # `positions` are smooth (interpolated) render coords parallel to `snake`.
+    # Sprite choice and rotation still come from the logical grid cells.
+    pos = positions if positions is not None else snake
     last = len(snake) - 1
 
     for index, part in enumerate(snake):
@@ -253,6 +262,6 @@ def draw_snake(screen, snake, cell_size, sprites, direction):
         else:
             image = sprites["body"]
 
-        screen.blit(image, (part[0], part[1]))
+        screen.blit(image, (int(pos[index][0]), int(pos[index][1])))
 
-    _draw_tongue(screen, snake[0], cell_size, direction)
+    _draw_tongue(screen, pos[0], cell_size, direction)
