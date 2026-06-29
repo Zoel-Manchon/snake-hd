@@ -14,7 +14,7 @@ import random
 
 from game.settings import (
     WIDTH, HEIGHT, CELL_SIZE, HUD_HEIGHT,
-    ENEMY_WEIGHTS, DRIFTER_INTERVAL, BLINKER_PERIOD, BLINKER_SOLID,
+    ENEMY_WEIGHTS, DRIFTER_INTERVAL, BLINKER_PERIOD, BLINKER_SOLID, CHASER_INTERVAL,
 )
 
 # Orthogonal one-cell steps used by drifters.
@@ -77,4 +77,27 @@ class Enemy:
 
         elif self.kind == "blinker":
             self.phase = (self.phase + 1) % BLINKER_PERIOD
+
+        elif self.kind == "chaser":
+            self.timer += 1
+            if self.timer < CHASER_INTERVAL:
+                return
+            self.timer = 0
+
+            hx, hy = snake[0]
+            dx, dy = hx - self.pos[0], hy - self.pos[1]
+            # Step one cell along whichever axis we're furthest from the head on.
+            if abs(dx) >= abs(dy) and dx != 0:
+                step = (CELL_SIZE if dx > 0 else -CELL_SIZE, 0)
+            elif dy != 0:
+                step = (0, CELL_SIZE if dy > 0 else -CELL_SIZE)
+            else:
+                return
+
+            nx, ny = self.pos[0] + step[0], self.pos[1] + step[1]
+            if nx < 0 or nx >= WIDTH or ny < HUD_HEIGHT or ny >= HEIGHT:
+                return                                  # don't leave the board
+            if tuple([nx, ny]) in occupied or [nx, ny] == list(food):
+                return                                  # blocked by another enemy / food
+            self.pos = [nx, ny]
         # mine: nothing to do.

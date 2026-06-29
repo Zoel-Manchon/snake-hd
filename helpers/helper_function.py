@@ -6,7 +6,7 @@ import pygame
 ROT = {"RIGHT": 0, "UP": 90, "LEFT": 180, "DOWN": 270}
 
 # Single-image sprites vs. horizontal animation strips (square frames).
-STATIC_SPRITES = ("head", "body", "tail", "pu_slowmo", "pu_double", "pu_magnet")
+STATIC_SPRITES = ("head", "body", "tail", "pu_slowmo", "pu_double", "pu_magnet", "pu_ghost")
 ANIMATED_SPRITES = ("food", "bonus", "mine")
 ANIM_MS = 130   # milliseconds each animation frame is shown
 
@@ -218,6 +218,9 @@ def draw_enemies(screen, enemies, cell_size, sprites):
             pygame.draw.circle(screen, (90, 200, 220), (cx, cy), r, 2)   # moving
         elif enemy.kind == "blinker":
             pygame.draw.circle(screen, (235, 120, 90), (cx, cy), r, 2)   # solid = deadly now
+        elif enemy.kind == "chaser":
+            pygame.draw.circle(screen, (235, 70, 70), (cx, cy), r, 2)        # hunter
+            pygame.draw.circle(screen, (235, 70, 70), (cx, cy), max(2, r - 5), 1)
 
 
 _DIR_VEC = {"RIGHT": (1, 0), "LEFT": (-1, 0), "UP": (0, -1), "DOWN": (0, 1)}

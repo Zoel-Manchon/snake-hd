@@ -253,6 +253,8 @@ def game(wrap, difficulty):
         fever_timer = 0       # frames of fever remaining (refreshed by chaining)
         fever_phase = 0.0     # advances each frame to drive the pulsing visuals
         fever_flash = 0       # frames of the white ignite flash remaining
+        shake_timer = 0       # frames of screen-shake remaining
+        shake_mag = 0.0       # current shake magnitude in pixels
         powerup = None        # pickup position on the board, or None
         powerup_kind = None   # which power-up the current pickup grants
         powerup_life = 0      # steps before the pickup vanishes
@@ -406,8 +408,10 @@ def game(wrap, difficulty):
                     body_to_check = snake if will_grow else snake[:-1]
 
                     wall_death = (not wrap) and hit_wall(new_head)
+                    ghost = "ghost" in effects   # phase through tail + enemies while active
 
-                    if wall_death or hit_self(new_head, body_to_check) or hit_enemy(new_head, enemies):
+                    if wall_death or (not ghost and (hit_self(new_head, body_to_check)
+                                                     or hit_enemy(new_head, enemies))):
                         game_over = True
                         fever = False
                         accumulator = 0.0
@@ -456,6 +460,7 @@ def game(wrap, difficulty):
                             score += gained
                             play_sound("bonus")
                             bonus = None
+                            shake_timer, shake_mag = 5, 5.0
                             combo_timer = COMBO_WINDOW   # keep the chain alive
                             bc = FEVER_COLORS[1] if fever else (255, 210, 70)
                             fx.burst(gx, gy, bc, count=28 if fever else 24,
@@ -468,6 +473,7 @@ def game(wrap, difficulty):
                                 if not fever:
                                     fever = True
                                     fever_flash = 8
+                                    shake_timer, shake_mag = 9, 8.0
                                     play_sound("fever")
                                 fever_timer = FEVER_DURATION
                             gained = combo * mult * (FEVER_MULT if fever else 1)
@@ -547,6 +553,10 @@ def game(wrap, difficulty):
             if powerup is not None and not game_over:
                 draw_powerup(screen, powerup, powerup_kind, CELL_SIZE, sprites)
             draw_enemies(screen, enemies, CELL_SIZE, sprites)
+            if "ghost" in effects and not game_over:   # phasing aura
+                aura = 0.26 + 0.10 * math.sin(pygame.time.get_ticks() * 0.02)
+                draw_fever_glow(screen, render_positions if render_positions else snake,
+                                CELL_SIZE, (90, 200, 255), aura)
             if fever:
                 draw_fever_glow(screen, render_positions if render_positions else snake,
                                 CELL_SIZE, fever_color, 0.35 + 0.45 * pulse)
@@ -581,6 +591,17 @@ def game(wrap, difficulty):
 
             draw_fps(screen, clock, small_font)
             draw_border(screen, WIDTH, HEIGHT, INK)
+
+            # Screen shake: re-blit the finished frame at a decaying random offset.
+            if shake_timer > 0 and not paused:
+                shake_timer -= 1
+                m = int(shake_mag)
+                if m > 0:
+                    buf = screen.copy()
+                    screen.fill((0, 0, 0))
+                    screen.blit(buf, (random.randint(-m, m), random.randint(-m, m)))
+                shake_mag *= 0.8
+
             if not did_fade_in:
                 fade_in_current()
                 did_fade_in = True
