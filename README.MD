@@ -164,7 +164,7 @@ snake-hd/
 ## Credits & License
 
 * **Code, sprites, and sound effects:** released under the [MIT License](LICENSE).
-  *(Remember to replace `[Your Name]` in the `LICENSE` file.)*
+
 * **Font:** [Press Start 2P](https://fonts.google.com/specimen/Press+Start+2P)
   by CodeMan38, licensed under the SIL Open Font License v1.1
   (see `assets/PressStart2P-OFL.txt`). It is **not** covered by the MIT license.
