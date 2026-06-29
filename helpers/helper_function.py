@@ -46,17 +46,28 @@ def draw_text(screen, text, x, y, font, big_font, color, use_big_font=False):
     screen.blit(image, (x, y))
 
 
+_BG_CACHE = None
+_BG_KEY = None
+
+
 def draw_background(screen, width, height, cell_size, hud_height, nokia_bg, nokia_grid, hud_bg, dark_green):
-    screen.fill(nokia_bg)
-
-    pygame.draw.rect(screen, hud_bg, pygame.Rect(0, 0, width, hud_height))
-    pygame.draw.line(screen, dark_green, (0, hud_height), (width, hud_height), 3)
-
-    for x in range(0, width, cell_size):
-        pygame.draw.line(screen, nokia_grid, (x, hud_height), (x, height))
-
-    for y in range(hud_height, height, cell_size):
-        pygame.draw.line(screen, nokia_grid, (0, y), (width, y))
+    # The background is static, so render it once and just blit the cached
+    # surface each frame. Redrawing ~50 grid lines every frame was the main
+    # thing keeping the loop from holding a steady 60 FPS.
+    global _BG_CACHE, _BG_KEY
+    key = (width, height, cell_size, hud_height, nokia_bg, nokia_grid, hud_bg, dark_green)
+    if _BG_CACHE is None or _BG_KEY != key:
+        surf = pygame.Surface((width, height))
+        surf.fill(nokia_bg)
+        pygame.draw.rect(surf, hud_bg, pygame.Rect(0, 0, width, hud_height))
+        pygame.draw.line(surf, dark_green, (0, hud_height), (width, hud_height), 3)
+        for x in range(0, width, cell_size):
+            pygame.draw.line(surf, nokia_grid, (x, hud_height), (x, height))
+        for y in range(hud_height, height, cell_size):
+            pygame.draw.line(surf, nokia_grid, (0, y), (width, y))
+        _BG_CACHE = surf
+        _BG_KEY = key
+    screen.blit(_BG_CACHE, (0, 0))
 
 
 def draw_text_center(screen, text, y, font, color):
