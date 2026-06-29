@@ -1,3 +1,4 @@
+import math
 import os
 import pygame
 
@@ -265,3 +266,97 @@ def draw_snake(screen, snake, cell_size, sprites, direction, positions=None):
         screen.blit(image, (int(pos[index][0]), int(pos[index][1])))
 
     _draw_tongue(screen, pos[0], cell_size, direction)
+
+
+# ---------------------------------------------------------------------------
+# Fever mode visuals.  All effects reuse cached scratch surfaces so they cost
+# almost nothing per frame, and pulse via values computed in the game loop.
+# ---------------------------------------------------------------------------
+_SCRATCH = {}
+_SCRATCH_ALPHA = {}
+
+
+def _scratch(size):
+    s = _SCRATCH.get(size)
+    if s is None:
+        s = pygame.Surface(size)
+        _SCRATCH[size] = s
+    return s
+
+
+def _scratch_alpha(size):
+    s = _SCRATCH_ALPHA.get(size)
+    if s is None:
+        s = pygame.Surface(size, pygame.SRCALPHA)
+        _SCRATCH_ALPHA[size] = s
+    s.fill((0, 0, 0, 0))
+    return s
+
+
+def lerp_color(a, b, t):
+    t = max(0.0, min(1.0, t))
+    return (int(a[0] + (b[0] - a[0]) * t),
+            int(a[1] + (b[1] - a[1]) * t),
+            int(a[2] + (b[2] - a[2]) * t))
+
+
+def draw_fever_tint(screen, width, height, hud_height, color, alpha):
+    """Faint electric wash over the playfield (under the snake)."""
+    surf = _scratch((width, height - hud_height))
+    surf.fill(color)
+    surf.set_alpha(int(alpha))
+    screen.blit(surf, (0, hud_height))
+
+
+def draw_fever_glow(screen, positions, cell, color, intensity):
+    """Additive halo behind each snake segment; `intensity` is 0..1."""
+    size = cell + 10
+    g = _scratch((size, size))
+    g.fill((int(color[0] * intensity), int(color[1] * intensity), int(color[2] * intensity)))
+    off = (size - cell) // 2
+    for p in positions:
+        screen.blit(g, (int(p[0]) - off, int(p[1]) - off), special_flags=pygame.BLEND_RGB_ADD)
+
+
+def draw_fever_vignette(screen, width, height, hud_height, color, alpha):
+    """Pulsing electric border framing the playfield."""
+    surf = _scratch_alpha((width, height - hud_height))
+    rect = surf.get_rect()
+    alpha = int(alpha)
+    for i, a in enumerate((alpha, alpha * 2 // 3, alpha // 3)):
+        pygame.draw.rect(surf, (*color, a), rect.inflate(-i * 16, -i * 16), 6, border_radius=6)
+    screen.blit(surf, (0, hud_height))
+
+
+def draw_fever_banner(screen, mult, color, big_font, alpha, hud_height):
+    img = big_font.render(f"FEVER  x{mult}", True, color)
+    img.set_alpha(int(alpha))
+    x = (screen.get_width() - img.get_width()) // 2
+    screen.blit(img, (x, hud_height + 14))
+
+
+def draw_fever_meter(screen, ratio, color, width, hud_height):
+    ratio = max(0.0, min(1.0, ratio))
+    x, y, full = 120, hud_height + 70, width - 240
+    pygame.draw.rect(screen, (38, 40, 60), (x, y, full, 10), border_radius=5)
+    if ratio > 0:
+        pygame.draw.rect(screen, color, (x, y, int(full * ratio), 10), border_radius=5)
+
+
+def draw_flash(screen, alpha):
+    s = _scratch(screen.get_size())
+    s.fill((255, 255, 255))
+    s.set_alpha(int(alpha))
+    screen.blit(s, (0, 0))
+
+
+def draw_wave_text(screen, text, center_x, base_y, font, color, phase, amp=10, spacing=6):
+    """Render text glyph-by-glyph with a travelling vertical sine wave."""
+    widths = [font.size(ch)[0] for ch in text]
+    total = sum(widths) + spacing * (len(text) - 1)
+    x = center_x - total // 2
+    for i, ch in enumerate(text):
+        img = font.render(ch, True, color)
+        y = base_y + int(amp * math.sin(phase + i * 0.7))
+        screen.blit(img, (x, y))
+        x += widths[i] + spacing

@@ -1,3 +1,4 @@
+import math
 import pygame
 import random
 
@@ -17,6 +18,14 @@ from helpers.helper_function import (
     draw_snake,
     draw_fps,
     load_sprites,
+    lerp_color,
+    draw_fever_tint,
+    draw_fever_glow,
+    draw_fever_vignette,
+    draw_fever_banner,
+    draw_fever_meter,
+    draw_flash,
+    draw_wave_text,
 )
 
 from helpers.storage import load_high_score, save_high_score
@@ -54,16 +63,130 @@ fx = ParticleSystem(BG)
 popups = FloatingTextSystem(font)
 
 
+def fade_out_current(speed=24):
+    """Fade whatever is on screen out to black."""
+    frame = screen.copy()
+    black = pygame.Surface((WIDTH, HEIGHT)); black.fill((0, 0, 0))
+    for a in range(0, 256, speed):
+        screen.blit(frame, (0, 0)); black.set_alpha(a); screen.blit(black, (0, 0))
+        pygame.display.update(); clock.tick(60)
+
+
+def fade_in_current(speed=24):
+    """Fade the freshly drawn frame in from black."""
+    frame = screen.copy()
+    black = pygame.Surface((WIDTH, HEIGHT)); black.fill((0, 0, 0))
+    for a in range(255, -1, -speed):
+        screen.blit(frame, (0, 0)); black.set_alpha(a); screen.blit(black, (0, 0))
+        pygame.display.update(); clock.tick(60)
+    screen.blit(frame, (0, 0)); pygame.display.update()
+
+
+_DIR_NAME = {(CELL_SIZE, 0): "RIGHT", (-CELL_SIZE, 0): "LEFT",
+             (0, CELL_SIZE): "DOWN", (0, -CELL_SIZE): "UP"}
+
+
+class DemoSnake:
+    """A snake that drives itself around the menu, chasing a roaming apple."""
+
+    def __init__(self):
+        self.cols = WIDTH // CELL_SIZE
+        self.rows = HEIGHT // CELL_SIZE
+        cx, cy = self.cols // 2, self.rows // 2
+        self.cells = [[(cx - i) * CELL_SIZE, cy * CELL_SIZE] for i in range(6)]
+        self.prev = [c[:] for c in self.cells]
+        self.dir = (CELL_SIZE, 0)
+        self.dir_name = "RIGHT"
+        self.length = 9
+        self.max_length = 14
+        self.target = self._rand_cell()
+        self.acc = 0.0
+        self.step_ms = 95.0
+
+    def _rand_cell(self):
+        return [random.randrange(self.cols) * CELL_SIZE,
+                random.randrange(self.rows) * CELL_SIZE]
+
+    def _choose_dir(self):
+        head = self.cells[0]
+        back = (-self.dir[0], -self.dir[1])
+        opts = [d for d in ((CELL_SIZE, 0), (-CELL_SIZE, 0), (0, CELL_SIZE), (0, -CELL_SIZE))
+                if d != back]
+        body = {tuple(c) for c in self.cells[:-1]}
+
+        def ok(d):
+            nx = (head[0] + d[0]) % WIDTH
+            ny = (head[1] + d[1]) % HEIGHT
+            return (nx, ny) not in body
+
+        safe = [d for d in opts if ok(d)] or opts
+        if random.random() < 0.78:                      # mostly chase the apple
+            safe.sort(key=lambda d: abs(head[0] + d[0] - self.target[0])
+                                    + abs(head[1] + d[1] - self.target[1]))
+            return safe[0]
+        return random.choice(safe)                      # sometimes wander
+
+    def update(self, dt):
+        self.acc += dt
+        while self.acc >= self.step_ms:
+            self.acc -= self.step_ms
+            self.prev = [c[:] for c in self.cells]
+            self.dir = self._choose_dir()
+            self.dir_name = _DIR_NAME[self.dir]
+            head = self.cells[0]
+            nx = (head[0] + self.dir[0]) % WIDTH
+            ny = (head[1] + self.dir[1]) % HEIGHT
+            self.cells.insert(0, [nx, ny])
+            if [nx, ny] == self.target:
+                self.target = self._rand_cell()
+                if self.length < self.max_length:
+                    self.length += 1
+            if len(self.cells) > self.length:
+                self.cells.pop()
+
+    def positions(self):
+        t = min(1.0, self.acc / self.step_ms)
+        out = []
+        for i, cur in enumerate(self.cells):
+            prv = self.prev[i] if i < len(self.prev) else cur
+            dx, dy = cur[0] - prv[0], cur[1] - prv[1]
+            if abs(dx) > CELL_SIZE or abs(dy) > CELL_SIZE:
+                out.append([cur[0], cur[1]])
+            else:
+                out.append([prv[0] + dx * t, prv[1] + dy * t])
+        return out
+
+
 def start_menu():
     modes = [("SCREEN WRAP", True), ("WALLS", False)]
     mode_idx = 0
     diff_idx = DIFFICULTY_ORDER.index("NORMAL")
     row = 0  # 0 = mode row, 1 = difficulty row
 
+    demo = DemoSnake()
+    phase = 0.0
+    faded_in = False
+
     while True:
+        dt = clock.tick(60)
+        phase += dt / 1000.0
+        demo.update(dt)
+
         draw_background(screen, WIDTH, HEIGHT, CELL_SIZE, HUD_HEIGHT, BG, GRID, HUD_BG, INK)
 
-        draw_text_center(screen, "SNAKE", 150, big_font, ACCENT)
+        # The menu is alive: a self-driving snake chases a roaming apple.
+        draw_food(screen, demo.target, CELL_SIZE, sprites)
+        draw_snake(screen, demo.cells, CELL_SIZE, sprites, demo.dir_name, demo.positions())
+
+        # Dim panel so the text stays readable over the moving snake.
+        panel = pygame.Surface((780, 340), pygame.SRCALPHA)
+        panel.fill((10, 12, 22, 185))
+        pygame.draw.rect(panel, (*ACCENT, 70), panel.get_rect(), 2, border_radius=14)
+        screen.blit(panel, ((WIDTH - 780) // 2, 248))
+
+        # Animated logo: a travelling wave + a gentle green shimmer.
+        title_color = lerp_color(ACCENT, (170, 245, 180), 0.5 + 0.5 * math.sin(phase * 2.2))
+        draw_wave_text(screen, "SNAKE", WIDTH // 2, 140, big_font, title_color, phase * 3.5, amp=12)
 
         mode_color = ACCENT if row == 0 else INK
         diff_color = ACCENT if row == 1 else INK
@@ -76,7 +199,11 @@ def start_menu():
         draw_text_center(screen, sound_label, 550, font, INK)
 
         draw_border(screen, WIDTH, HEIGHT, INK)
-        pygame.display.update()
+        if not faded_in:
+            fade_in_current()
+            faded_in = True
+        else:
+            pygame.display.update()
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -94,6 +221,7 @@ def start_menu():
                 elif event.key == pygame.K_m:
                     toggle_mute()
                 elif event.key == pygame.K_RETURN:
+                    fade_out_current()
                     return modes[mode_idx][1], DIFFICULTY_ORDER[diff_idx]
 
 
@@ -105,6 +233,8 @@ def game(wrap, difficulty):
     speed_cap = cfg["speed_cap"]
     enemy_interval = cfg["enemy_interval"]
     start_enemies = cfg["start_enemies"]
+
+    did_fade_in = False   # fade the first frame in from black once per entry
 
     # Outer loop lets us restart cleanly without recursion.
     while True:
@@ -119,6 +249,10 @@ def game(wrap, difficulty):
         bonus_timer = 0       # steps remaining before it vanishes
         combo = 1             # current score multiplier
         combo_timer = 0       # steps left to keep the combo alive
+        fever = False         # signature mechanic: electric high-combo state
+        fever_timer = 0       # frames of fever remaining (refreshed by chaining)
+        fever_phase = 0.0     # advances each frame to drive the pulsing visuals
+        fever_flash = 0       # frames of the white ignite flash remaining
         powerup = None        # pickup position on the board, or None
         powerup_kind = None   # which power-up the current pickup grants
         powerup_life = 0      # steps before the pickup vanishes
@@ -187,6 +321,7 @@ def game(wrap, difficulty):
                                 restart = True
                                 running = False
                             elif go_sel == 1:        # MAIN MENU
+                                fade_out_current()
                                 return "menu"
                             else:                    # QUIT
                                 return "quit"
@@ -274,6 +409,7 @@ def game(wrap, difficulty):
 
                     if wall_death or hit_self(new_head, body_to_check) or hit_enemy(new_head, enemies):
                         game_over = True
+                        fever = False
                         accumulator = 0.0
                         play_sound("death")
                         record_score(score, PLAYER_NAME)
@@ -314,21 +450,35 @@ def game(wrap, difficulty):
                         gx = new_head[0] + CELL_SIZE // 2
                         gy = new_head[1] + CELL_SIZE // 2
                         if ate_bonus:
-                            gained = BONUS_POINTS * combo * mult
+                            if fever:
+                                fever_timer = FEVER_DURATION   # bonus keeps the fever alive
+                            gained = BONUS_POINTS * combo * mult * (FEVER_MULT if fever else 1)
                             score += gained
                             play_sound("bonus")
                             bonus = None
                             combo_timer = COMBO_WINDOW   # keep the chain alive
-                            fx.burst(gx, gy, (255, 210, 70), count=24, speed=3.5, size=6, life=42)
+                            bc = FEVER_COLORS[1] if fever else (255, 210, 70)
+                            fx.burst(gx, gy, bc, count=28 if fever else 24,
+                                     speed=4.0 if fever else 3.5, size=7 if fever else 6, life=44)
                             popups.add(gx, gy - 6, f"+{gained}", (255, 210, 70))
                         else:
                             combo = min(combo + 1, COMBO_MAX) if combo_timer > 0 else 1
-                            gained = combo * mult
+                            # Ignite (or sustain) fever once the combo hits its peak.
+                            if combo >= FEVER_TRIGGER:
+                                if not fever:
+                                    fever = True
+                                    fever_flash = 8
+                                    play_sound("fever")
+                                fever_timer = FEVER_DURATION
+                            gained = combo * mult * (FEVER_MULT if fever else 1)
                             score += gained
                             play_eat(combo)
                             combo_timer = COMBO_WINDOW
-                            fx.burst(gx, gy, ACCENT, count=14, speed=3.0, size=5, life=36)
-                            popups.add(gx, gy - 6, f"+{gained}", ACCENT)
+                            if fever:
+                                fx.burst(gx, gy, FEVER_COLORS[1], count=26, speed=4.2, size=7, life=44)
+                            else:
+                                fx.burst(gx, gy, ACCENT, count=14, speed=3.0, size=5, life=36)
+                            popups.add(gx, gy - 6, f"+{gained}", FEVER_COLORS[0] if fever else ACCENT)
 
                         if score > high_score:
                             high_score = score
@@ -372,15 +522,38 @@ def game(wrap, difficulty):
             fx.update()
             popups.update()
 
+            # ---- fever-mode timing + pulse values ----
+            if fever and not paused and not game_over:
+                fever_timer -= 1
+                fever_phase += frame_ms / 1000.0
+                if fever_timer <= 0:
+                    fever = False
+            if fever_flash > 0 and not paused:
+                fever_flash -= 1
+
+            pulse = 0.0
+            fever_color = FEVER_COLORS[0]
+            if fever:
+                pulse = 0.5 + 0.5 * math.sin(fever_phase * 9.0)      # fast strobe 0..1
+                sweep = 0.5 + 0.5 * math.sin(fever_phase * 2.5)      # slow magenta<->cyan
+                fever_color = lerp_color(FEVER_COLORS[0], FEVER_COLORS[1], sweep)
+
             # ---- render (every frame) ----
             draw_background(screen, WIDTH, HEIGHT, CELL_SIZE, HUD_HEIGHT, BG, GRID, HUD_BG, INK)
+            if fever:
+                draw_fever_tint(screen, WIDTH, HEIGHT, HUD_HEIGHT, fever_color, 26 + 30 * pulse)
             draw_food(screen, food, CELL_SIZE, sprites)
             draw_active_bonus()
             if powerup is not None and not game_over:
                 draw_powerup(screen, powerup, powerup_kind, CELL_SIZE, sprites)
             draw_enemies(screen, enemies, CELL_SIZE, sprites)
+            if fever:
+                draw_fever_glow(screen, render_positions if render_positions else snake,
+                                CELL_SIZE, fever_color, 0.35 + 0.45 * pulse)
             draw_snake(screen, snake, CELL_SIZE, sprites, direction, render_positions)
             fx.draw(screen)
+            if fever:
+                draw_fever_vignette(screen, WIDTH, HEIGHT, HUD_HEIGHT, fever_color, 120 + 90 * pulse)
             if not game_over and not paused:
                 popups.draw(screen)
 
@@ -392,7 +565,10 @@ def game(wrap, difficulty):
                 draw_text_center(screen, "PAUSED", 340, big_font, ACCENT)
                 draw_text_center(screen, "Press P to resume", 430, font, INK)
             else:
-                if combo > 1:
+                if fever:
+                    draw_fever_banner(screen, FEVER_MULT, fever_color, big_font, 170 + 85 * pulse, HUD_HEIGHT)
+                    draw_fever_meter(screen, fever_timer / FEVER_DURATION, fever_color, WIDTH, HUD_HEIGHT)
+                elif combo > 1:
                     draw_combo(screen, combo, combo_timer, COMBO_WINDOW, font, ACCENT)
                 for i, (name, ticks) in enumerate(effects.items()):
                     cfg = POWERUP_EFFECTS[name]
@@ -400,9 +576,16 @@ def game(wrap, difficulty):
                 if is_muted():
                     draw_text_center(screen, "MUTED", HEIGHT - 36, font, (120, 124, 150))
 
+            if fever_flash > 0:
+                draw_flash(screen, 200 * fever_flash / 8)
+
             draw_fps(screen, clock, small_font)
             draw_border(screen, WIDTH, HEIGHT, INK)
-            pygame.display.update()
+            if not did_fade_in:
+                fade_in_current()
+                did_fade_in = True
+            else:
+                pygame.display.update()
 
 def main():
     while True:

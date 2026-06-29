@@ -55,3 +55,11 @@ BLINKER_SOLID = 58      # ticks of each cycle the blinker is solid (deadly)
 
 # --- Leaderboard ---------------------------------------------------------
 PLAYER_NAME = "ZOEL"    # your handle as it appears on the hash-chain leaderboard
+
+# --- Fever mode (signature mechanic) ---------------------------------------
+# Chain food up to the max combo and the board ignites: points multiply and
+# the whole screen goes electric until the fever cools down.
+FEVER_TRIGGER = COMBO_MAX          # combo needed to ignite fever
+FEVER_DURATION = 360               # frames of fever (~6s @60fps), refreshed by chaining
+FEVER_MULT = 2                     # extra score multiplier while fever is active
+FEVER_COLORS = ((255, 64, 160), (64, 200, 255))   # electric magenta <-> cyan pulse
