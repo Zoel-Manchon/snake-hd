@@ -15,6 +15,7 @@ import math
 from game.settings import (
     CELL_SIZE, WIDTH, HEIGHT, HUD_HEIGHT,
     BOSS_MAX_HP, BOSS_FIRE_INTERVAL, BOSS_PROJ_SPEED, BOSS_ENRAGE_HP,
+    BOSS_BURST_COUNT, BOSS_BURST_INTERVAL, BOSS_BURST_CHARGE, BOSS_BURST_SPEED,
 )
 
 
@@ -29,6 +30,8 @@ class Boss:
         self.hp = BOSS_MAX_HP
         self.projectiles = []        # each: [px, py, vx, vy] in pixel coords
         self.fire_cd = BOSS_FIRE_INTERVAL
+        self.burst_cd = BOSS_BURST_INTERVAL   # steps until the next radial burst
+        self.charge = 0.0            # seconds left on the burst telegraph (0 = idle)
         self.phase = 0.0             # advances each frame -> pulsing visuals
         self.flash = 0.0             # seconds of white flinch after a hit
         self.look = (0.0, 1.0)       # pupil aim direction (unit vector)
@@ -36,6 +39,11 @@ class Boss:
     @property
     def enraged(self):
         return self.hp <= BOSS_ENRAGE_HP
+
+    @property
+    def charge_frac(self):
+        """1.0 at the start of a charge -> 0.0 at release; 0 when idle."""
+        return (self.charge / BOSS_BURST_CHARGE) if (BOSS_BURST_CHARGE and self.charge > 0) else 0.0
 
     def center_px(self):
         return (self.cx + CELL_SIZE // 2, self.cy + CELL_SIZE // 2)
@@ -69,6 +77,12 @@ class Boss:
         if self.fire_cd <= 0:
             self._fire(target)
             self.fire_cd = max(2, BOSS_FIRE_INTERVAL // 2) if self.enraged else BOSS_FIRE_INTERVAL
+        # Enraged: periodically wind up a full radial burst (released in advance()).
+        if self.enraged:
+            self.burst_cd -= 1
+            if self.burst_cd <= 0 and self.charge <= 0:
+                self.charge = BOSS_BURST_CHARGE
+                self.burst_cd = BOSS_BURST_INTERVAL
 
     def _fire(self, target):
         cxp, cyp = self.center_px()
@@ -80,11 +94,31 @@ class Boss:
             vy = (ux * sin_s + uy * cos_s) * BOSS_PROJ_SPEED
             self.projectiles.append([float(cxp), float(cyp), vx, vy])
 
+    def _radial_burst(self):
+        """Fire a full ring of evenly-spaced projectiles from the eye."""
+        cxp, cyp = self.center_px()
+        n = BOSS_BURST_COUNT
+        off = self.phase            # rotate each burst a little so they differ
+        for k in range(n):
+            ang = off + 2 * math.pi * k / n
+            self.projectiles.append([float(cxp), float(cyp),
+                                     math.cos(ang) * BOSS_BURST_SPEED,
+                                     math.sin(ang) * BOSS_BURST_SPEED])
+
     def advance(self, dt_ms):
-        """Called every frame: move projectiles, drop off-board, advance pulse."""
+        """Called every frame: move projectiles, drop off-board, advance pulse,
+        and release a charged radial burst when the telegraph completes.
+        Returns True on the frame a burst is released (so the caller can react)."""
+        released = False
         self.phase += dt_ms / 1000.0
         if self.flash > 0:
             self.flash = max(0.0, self.flash - dt_ms / 1000.0)
+        if self.charge > 0:
+            self.charge -= dt_ms / 1000.0
+            if self.charge <= 0:
+                self.charge = 0.0
+                self._radial_burst()
+                released = True
         alive = []
         for p in self.projectiles:
             p[0] += p[2]
@@ -93,6 +127,7 @@ class Boss:
                     HUD_HEIGHT - CELL_SIZE <= p[1] <= self.height + CELL_SIZE):
                 alive.append(p)
         self.projectiles = alive
+        return released
 
     def hit(self):
         """Take one point of damage. Returns True when defeated."""

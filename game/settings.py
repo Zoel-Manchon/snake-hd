@@ -111,3 +111,8 @@ BOSS_ENRAGE_HP = 2        # at/under this HP the Warden enrages (faster + spread
 BOSS_COLOR = (200, 80, 230)        # the eye's calm colour
 BOSS_ENRAGE_COLOR = (255, 70, 70)  # the eye's enraged colour
 BOSS_PROJ_COLOR = (255, 110, 200)  # projectile core colour
+# Enrage radial burst: a full ring of bullets, telegraphed by a charge-up.
+BOSS_BURST_COUNT = 12       # projectiles per ring
+BOSS_BURST_INTERVAL = 6     # steps between radial bursts (enraged only)
+BOSS_BURST_CHARGE = 0.5     # seconds of telegraph before the ring fires
+BOSS_BURST_SPEED = 3.4      # ring projectile speed (px/frame; slower = readable)

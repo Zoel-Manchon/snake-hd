@@ -451,6 +451,18 @@ def draw_boss(screen, boss, cell):
         pygame.draw.circle(fl, (255, 255, 255, fa), (R + 2, R + 2), R)
         screen.blit(fl, (cx - R - 2, cy - R - 2))
 
+    # Charge telegraph: a bright warning ring that contracts toward the eye and
+    # brightens as the radial burst is about to release.
+    frac = getattr(boss, "charge_frac", 0.0)
+    if frac > 0:
+        ring_r = int(R * (1.15 + 1.5 * frac))
+        a = int(70 + 170 * (1.0 - frac))
+        warn = pygame.Surface((ring_r * 2 + 8, ring_r * 2 + 8), pygame.SRCALPHA)
+        c = ring_r + 4
+        pygame.draw.circle(warn, (255, 235, 170, a), (c, c), ring_r, 4)
+        pygame.draw.circle(warn, (255, 200, 120, a // 2), (c, c), max(2, ring_r - 6), 2)
+        screen.blit(warn, (cx - c, cy - c))
+
     # Projectiles: glowing pink orbs with a soft halo and a bright core.
     pr = max(4, int(cell * 0.30))
     for px, py, _, _ in boss.projectiles:

@@ -721,7 +721,9 @@ def game(wrap, difficulty, mode="CLASSIC"):
 
             # ---- Void Warden per-frame update ----
             if boss_active and boss is not None and not paused and not game_over:
-                boss.advance(frame_ms)
+                if boss.advance(frame_ms):       # True on the frame a radial burst fires
+                    play_sound("fever")
+                    shake_timer, shake_mag = 9, 7.5
                 if tuple(snake[0]) in boss.projectile_cells():
                     kill()                # a projectile caught the stationary head
             if boss_banner > 0 and not paused:
