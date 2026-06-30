@@ -21,6 +21,7 @@ ACHIEVEMENTS = [
     ("globetrotter", "GLOBETROTTER",   "Reach THE VOID biome"),
     ("beat_clock",   "BEAT THE CLOCK", "Score 50+ in Time Attack"),
     ("zen_master",   "ZEN MASTER",     "Grow to length 50 in Zen"),
+    ("void_slayer",  "VOID SLAYER",    "Defeat the Void Warden"),
 ]
 NAME = {a[0]: a[1] for a in ACHIEVEMENTS}
 DESC = {a[0]: a[2] for a in ACHIEVEMENTS}

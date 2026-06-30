@@ -1,0 +1,194 @@
+[
+  {
+    "index": 0,
+    "timestamp": "2026-06-29T21:50:39.056052100+00:00",
+    "name": "ZOEL",
+    "score": 250,
+    "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "hash": "b89292def017ae2ff39b672f2a3319d9a4d8623df684491c11b710840b34aeab"
+  },
+  {
+    "index": 1,
+    "timestamp": "2026-06-29T22:00:25.017103400+00:00",
+    "name": "ZOEL",
+    "score": 30,
+    "prev_hash": "b89292def017ae2ff39b672f2a3319d9a4d8623df684491c11b710840b34aeab",
+    "hash": "13b05f0a2cbdb3b87b58a4b487de39f2a9924a4c2f1f175485253e95db3628b5"
+  },
+  {
+    "index": 2,
+    "timestamp": "2026-06-29T22:00:36.048726100+00:00",
+    "name": "ZOEL",
+    "score": 26,
+    "prev_hash": "13b05f0a2cbdb3b87b58a4b487de39f2a9924a4c2f1f175485253e95db3628b5",
+    "hash": "71415d2d1be343177939506ac0135a0d618f6cafe37d027cf3ef970f7fcc0ad2"
+  },
+  {
+    "index": 3,
+    "timestamp": "2026-06-29T22:01:00.238126+00:00",
+    "name": "ZOEL",
+    "score": 22,
+    "prev_hash": "71415d2d1be343177939506ac0135a0d618f6cafe37d027cf3ef970f7fcc0ad2",
+    "hash": "34c8ca420a42fb5df27650845b16993eb4b8d7507af719d3d5146ae4bfe7f8ab"
+  },
+  {
+    "index": 4,
+    "timestamp": "2026-06-29T22:14:14.307270100+00:00",
+    "name": "ZOEL",
+    "score": 90,
+    "prev_hash": "34c8ca420a42fb5df27650845b16993eb4b8d7507af719d3d5146ae4bfe7f8ab",
+    "hash": "70627541aa38c20fcf7ccc9864e8d21864892482e708d5a81f095e00267efdd2"
+  },
+  {
+    "index": 5,
+    "timestamp": "2026-06-29T22:14:28.509810800+00:00",
+    "name": "ZOEL",
+    "score": 6,
+    "prev_hash": "70627541aa38c20fcf7ccc9864e8d21864892482e708d5a81f095e00267efdd2",
+    "hash": "6b2996b51c5ad40e054ad5e7f532289134acdefced2b199a419b39d9f66e4484"
+  },
+  {
+    "index": 6,
+    "timestamp": "2026-06-29T22:14:42.434671500+00:00",
+    "name": "ZOEL",
+    "score": 36,
+    "prev_hash": "6b2996b51c5ad40e054ad5e7f532289134acdefced2b199a419b39d9f66e4484",
+    "hash": "6a007b095ccb020d97c3fd4a8b56fafd151eeaf81a47f8f668befd90f2fac512"
+  },
+  {
+    "index": 7,
+    "timestamp": "2026-06-29T22:14:49.529039300+00:00",
+    "name": "ZOEL",
+    "score": 16,
+    "prev_hash": "6a007b095ccb020d97c3fd4a8b56fafd151eeaf81a47f8f668befd90f2fac512",
+    "hash": "d10923993c9f6b2fefbb57a06a8cedeec7abed72cdd9ecda41769e5394cc93cc"
+  },
+  {
+    "index": 8,
+    "timestamp": "2026-06-29T22:15:07.843639+00:00",
+    "name": "ZOEL",
+    "score": 12,
+    "prev_hash": "d10923993c9f6b2fefbb57a06a8cedeec7abed72cdd9ecda41769e5394cc93cc",
+    "hash": "19d8cf7a586a3f1535e861d0b6a82c0fc89b89127a67fccee9699fdf146a5b85"
+  },
+  {
+    "index": 9,
+    "timestamp": "2026-06-30T02:30:58.724450500+00:00",
+    "name": "ZOEL",
+    "score": 146,
+    "prev_hash": "19d8cf7a586a3f1535e861d0b6a82c0fc89b89127a67fccee9699fdf146a5b85",
+    "hash": "21c50cc6fa1414ba535055d848dbf47018e58d644b42c7e4746d606dc1a0d318"
+  },
+  {
+    "index": 10,
+    "timestamp": "2026-06-30T02:31:48.152539+00:00",
+    "name": "ZOEL",
+    "score": 81,
+    "prev_hash": "21c50cc6fa1414ba535055d848dbf47018e58d644b42c7e4746d606dc1a0d318",
+    "hash": "e004091dbee21a0f0bbeb30cb104861095eb89e86aa0cbcbc125ca4355163cb2"
+  },
+  {
+    "index": 11,
+    "timestamp": "2026-06-30T02:41:49.574820300+00:00",
+    "name": "ZOEL",
+    "score": 84,
+    "prev_hash": "e004091dbee21a0f0bbeb30cb104861095eb89e86aa0cbcbc125ca4355163cb2",
+    "hash": "73dc4682858c2ac4b26619f7e94836a155161d687f222f35f6a4036c38ec4a88"
+  },
+  {
+    "index": 12,
+    "timestamp": "2026-06-30T03:04:12.024837600+00:00",
+    "name": "ZOEL",
+    "score": 9,
+    "prev_hash": "73dc4682858c2ac4b26619f7e94836a155161d687f222f35f6a4036c38ec4a88",
+    "hash": "e24586f455df00ad7edbd7acc2508881f78eea5f66f5b069f033fb6c14ddcf12"
+  },
+  {
+    "index": 13,
+    "timestamp": "2026-06-30T03:15:28.074982600+00:00",
+    "name": "ZOEL",
+    "score": 38,
+    "prev_hash": "e24586f455df00ad7edbd7acc2508881f78eea5f66f5b069f033fb6c14ddcf12",
+    "hash": "4136b71585ebc860d0ad21e3a11114f88133c89062a3252ab218cdefa9f3728b"
+  },
+  {
+    "index": 14,
+    "timestamp": "2026-06-30T03:18:44.147939400+00:00",
+    "name": "ZOEL",
+    "score": 12,
+    "prev_hash": "4136b71585ebc860d0ad21e3a11114f88133c89062a3252ab218cdefa9f3728b",
+    "hash": "32e1234ee19f80d2a241e3cad8875c154901e65ff4a86b7bd95a1237c8294e58"
+  },
+  {
+    "index": 15,
+    "timestamp": "2026-06-30T03:19:59.269826500+00:00",
+    "name": "ZOEL",
+    "score": 140,
+    "prev_hash": "32e1234ee19f80d2a241e3cad8875c154901e65ff4a86b7bd95a1237c8294e58",
+    "hash": "9c83ad097a8b4a361fe5da278c9003c6c9333da7f9b4ffb3e8626364a7b0b7ad"
+  },
+  {
+    "index": 16,
+    "timestamp": "2026-06-30T07:00:38.866959200+00:00",
+    "name": "ZOEL",
+    "score": 16,
+    "prev_hash": "9c83ad097a8b4a361fe5da278c9003c6c9333da7f9b4ffb3e8626364a7b0b7ad",
+    "hash": "ec701d956595e8d0b413e753771df1c28b1796368aa7fdbfd35c8069200d323a"
+  },
+  {
+    "index": 17,
+    "timestamp": "2026-06-30T07:01:07.910487+00:00",
+    "name": "ZOEL",
+    "score": 34,
+    "prev_hash": "ec701d956595e8d0b413e753771df1c28b1796368aa7fdbfd35c8069200d323a",
+    "hash": "0349168ba77d6ed54e0ae00833064c99a64d0045f2ade00ec642c53d89ded6ca"
+  },
+  {
+    "index": 18,
+    "timestamp": "2026-06-30T07:37:58.304459900+00:00",
+    "name": "ZOEL",
+    "score": 10,
+    "prev_hash": "0349168ba77d6ed54e0ae00833064c99a64d0045f2ade00ec642c53d89ded6ca",
+    "hash": "f0bca489394e1909ef86c98417ef2a608d3d04de790ce0a785ead5dedfdaa261"
+  },
+  {
+    "index": 19,
+    "timestamp": "2026-06-30T07:38:29.489355200+00:00",
+    "name": "ZOEL",
+    "score": 14,
+    "prev_hash": "f0bca489394e1909ef86c98417ef2a608d3d04de790ce0a785ead5dedfdaa261",
+    "hash": "06b3f53b1cac8ccd0130b38ee58b0d695ae4167fac24963280622214c4701559"
+  },
+  {
+    "index": 20,
+    "timestamp": "2026-06-30T07:39:09.889841800+00:00",
+    "name": "ZOEL",
+    "score": 130,
+    "prev_hash": "06b3f53b1cac8ccd0130b38ee58b0d695ae4167fac24963280622214c4701559",
+    "hash": "f2e2280a584150207dfb693fbaef3feb3be6bf110d37db79327e65d0eba5df15"
+  },
+  {
+    "index": 21,
+    "timestamp": "2026-06-30T07:39:50.580694300+00:00",
+    "name": "ZOEL",
+    "score": 50,
+    "prev_hash": "f2e2280a584150207dfb693fbaef3feb3be6bf110d37db79327e65d0eba5df15",
+    "hash": "6af4cba48025b80faacd8bd2cc52742f4097d08cfbf1ecfd88af3b3aa0f22c2a"
+  },
+  {
+    "index": 22,
+    "timestamp": "2026-06-30T07:41:26.358329500+00:00",
+    "name": "ZOEL",
+    "score": 153,
+    "prev_hash": "6af4cba48025b80faacd8bd2cc52742f4097d08cfbf1ecfd88af3b3aa0f22c2a",
+    "hash": "c816e37535484db360a94ef7d2b0904f47150b52c2b22e61feecbc977ac6b048"
+  },
+  {
+    "index": 23,
+    "timestamp": "2026-06-30T07:42:14.241593500+00:00",
+    "name": "ZOEL",
+    "score": 173,
+    "prev_hash": "c816e37535484db360a94ef7d2b0904f47150b52c2b22e61feecbc977ac6b048",
+    "hash": "74b6a0f19c8fa6624a869c63af096d68985a45af00c0b9dc270e87b19ce0f8ac"
+  }
+]

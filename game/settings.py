@@ -101,3 +101,13 @@ BIOMES = [
 # --- Game modes (single-player) ---------------------------------------------
 GAME_MODES = ["CLASSIC", "TIME ATTACK", "ZEN"]
 TIME_ATTACK_SECONDS = 60   # length of a Time Attack run
+
+# --- The Void Warden (boss encounter) ---------------------------------------
+BOSS_MAX_HP = 5            # food pickups needed to drain the Warden
+BOSS_BONUS = 500          # score awarded for defeating it
+BOSS_FIRE_INTERVAL = 5    # steps between the Warden's shots (faster when enraged)
+BOSS_PROJ_SPEED = 4.2     # projectile speed in px/frame (~6 cells/sec at 60fps)
+BOSS_ENRAGE_HP = 2        # at/under this HP the Warden enrages (faster + spread shots)
+BOSS_COLOR = (200, 80, 230)        # the eye's calm colour
+BOSS_ENRAGE_COLOR = (255, 70, 70)  # the eye's enraged colour
+BOSS_PROJ_COLOR = (255, 110, 200)  # projectile core colour

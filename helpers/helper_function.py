@@ -408,3 +408,75 @@ def draw_versus_snake(screen, positions, cell, color, dark, direction=(1, 0), al
                 pupil = (int(cx + ex + ox * s), int(cy + ey + oy * s))
                 pygame.draw.circle(screen, (245, 248, 255), pupil, r)
                 pygame.draw.circle(screen, (20, 22, 34), pupil, max(1, r - 1))
+
+
+def draw_boss(screen, boss, cell):
+    """Draw the Void Warden: a pulsing eye whose pupil tracks the head, plus
+    its glowing projectiles. Enrages (reddens, pulses faster) at low HP."""
+    cx, cy = boss.center_px()
+    enraged = boss.enraged
+    base = (255, 70, 70) if enraged else (200, 80, 230)
+    pulse = 0.5 + 0.5 * math.sin(boss.phase * (7.0 if enraged else 3.2))
+    R = int(cell * 1.55)
+
+    # Outer glow (a few stacked translucent circles that breathe with the pulse).
+    g = R * 3
+    glow = pygame.Surface((g * 2, g * 2), pygame.SRCALPHA)
+    for i, a in enumerate((34, 24, 15)):
+        rr = int(g * (0.46 + 0.17 * i) + R * 0.35 * pulse)
+        pygame.draw.circle(glow, (base[0], base[1], base[2], a), (g, g), rr)
+    screen.blit(glow, (cx - g, cy - g))
+
+    # Eyeball: dark sclera with a bright rim + an inner ring.
+    pygame.draw.circle(screen, (16, 14, 26), (cx, cy), R)
+    pygame.draw.circle(screen, base, (cx, cy), R, max(2, int(cell * 0.12)))
+    ring = int(R * (0.60 + 0.06 * pulse))
+    pygame.draw.circle(screen, (44, 28, 64), (cx, cy), ring)
+    pygame.draw.circle(screen, base, (cx, cy), ring, 2)
+
+    # Iris + pupil, offset toward the head so the eye "looks" at the player.
+    iris_r = int(R * 0.42)
+    lx, ly = boss.look
+    ox, oy = int(lx * R * 0.34), int(ly * R * 0.34)
+    iris_col = (255, 140, 160) if enraged else (170, 120, 240)
+    pygame.draw.circle(screen, iris_col, (cx + ox, cy + oy), iris_r)
+    pygame.draw.circle(screen, (10, 8, 16), (cx + ox, cy + oy), int(iris_r * 0.55))
+    pygame.draw.circle(screen, (240, 240, 255),
+                       (cx + ox - iris_r // 4, cy + oy - iris_r // 4), max(2, iris_r // 6))
+
+    # White flinch when it has just been hit.
+    if boss.flash > 0:
+        fa = int(190 * min(1.0, boss.flash / 0.18))
+        fl = pygame.Surface((R * 2 + 4, R * 2 + 4), pygame.SRCALPHA)
+        pygame.draw.circle(fl, (255, 255, 255, fa), (R + 2, R + 2), R)
+        screen.blit(fl, (cx - R - 2, cy - R - 2))
+
+    # Projectiles: glowing pink orbs with a soft halo and a bright core.
+    pr = max(4, int(cell * 0.30))
+    for px, py, _, _ in boss.projectiles:
+        c = pr * 3
+        orb = pygame.Surface((c * 2, c * 2), pygame.SRCALPHA)
+        pygame.draw.circle(orb, (255, 90, 170, 70), (c, c), pr * 2)
+        pygame.draw.circle(orb, (255, 150, 200, 235), (c, c), pr)
+        pygame.draw.circle(orb, (255, 255, 255, 255), (c, c), max(1, pr // 2))
+        screen.blit(orb, (int(px) - c, int(py) - c))
+
+
+def draw_boss_hp(screen, boss, font, width, height):
+    """A segmented HP bar with a title, centred near the bottom of the board."""
+    title_col = (255, 110, 200)
+    label = font.render("THE VOID WARDEN", True, title_col)
+    n = boss.max_hp
+    pip_w, gap, pip_h = 46, 8, 16
+    total = n * pip_w + (n - 1) * gap
+    x0 = (width - total) // 2
+    y = height - 150
+    screen.blit(label, ((width - label.get_width()) // 2, y - 26))
+    fill = (255, 80, 90) if boss.enraged else (210, 90, 230)
+    for i in range(n):
+        x = x0 + i * (pip_w + gap)
+        rect = (x, y, pip_w, pip_h)
+        if i < boss.hp:
+            pygame.draw.rect(screen, fill, rect, border_radius=4)
+        else:
+            pygame.draw.rect(screen, (66, 54, 78), rect, 2, border_radius=4)

@@ -27,6 +27,8 @@ from helpers.helper_function import (
     draw_flash,
     draw_wave_text,
     draw_versus_snake,
+    draw_boss,
+    draw_boss_hp,
 )
 
 from helpers.storage import load_high_score, save_high_score
@@ -41,6 +43,7 @@ from game.snake_logic import move_snake_head
 from game.collision_logic import hit_self, hit_enemy, hit_wall
 from game.spawn_logic import random_position, random_safe_position, spawn_enemy
 from game.enemies import Enemy
+from game.boss import Boss
 
 pygame.init()
 
@@ -319,6 +322,52 @@ def game(wrap, difficulty, mode="CLASSIC"):
             if achievements.unlock(aid):
                 toasts.append([achievements.NAME[aid], 210])
                 play_sound("bonus")
+
+        # --- The Void Warden boss state ---
+        boss = None              # Boss instance while the fight is on, else None
+        boss_active = False      # True during the encounter
+        boss_done = False        # True once defeated this run (no re-trigger)
+        boss_banner = 0          # frames the boss banner stays up
+        boss_banner_text = ""
+
+        def kill():
+            """Run the full death sequence (used by both normal deaths and a
+            boss projectile hit). Finalizes the score and plays the animation."""
+            nonlocal game_over, fever, accumulator, leaderboard
+            game_over = True
+            fever = False
+            accumulator = 0.0
+            if not zen:                       # Zen runs are unranked
+                record_score(score, PLAYER_NAME)
+                online.submit_async(PLAYER_NAME, score, 5)
+            leaderboard = top_scores(5)
+            play_sound("death")
+            hx = snake[0][0] + CELL_SIZE // 2
+            hy = snake[0][1] + CELL_SIZE // 2
+            fx.burst(hx, hy, (235, 70, 84), count=34, speed=4.5, size=6, life=46)
+            for alpha in (200, 150, 105, 65, 30, 0):
+                buf = pygame.Surface((WIDTH, HEIGHT))
+                draw_background(buf, WIDTH, HEIGHT, CELL_SIZE, HUD_HEIGHT, biome_bg, biome_grid, HUD_BG, INK)
+                draw_food(buf, food, CELL_SIZE, sprites)
+                if bonus is not None:
+                    draw_bonus(buf, bonus, CELL_SIZE, sprites)
+                draw_enemies(buf, enemies, CELL_SIZE, sprites)
+                draw_snake(buf, snake, CELL_SIZE, sprites, direction)
+                if boss_active and boss is not None:
+                    draw_boss(buf, boss, CELL_SIZE)
+                fx.update()
+                fx.draw(buf)
+                draw_hud(buf, score, high_score, enemies, font, big_font, INK)
+                draw_overlay(buf, (220, 60, 60), alpha)
+                draw_border(buf, WIDTH, HEIGHT, INK)
+                mag = int(14 * (alpha / 200))
+                dx = random.randint(-mag, mag) if mag else 0
+                dy = random.randint(-mag, mag) if mag else 0
+                screen.fill(biome_bg)
+                screen.blit(buf, (dx, dy))
+                pygame.display.update()
+                clock.tick(40)
+
         powerup = None        # pickup position on the board, or None
         powerup_kind = None   # which power-up the current pickup grants
         powerup_life = 0      # steps before the pickup vanishes
@@ -416,7 +465,7 @@ def game(wrap, difficulty, mode="CLASSIC"):
                     prev_snake = [list(seg) for seg in snake]   # state before this step
 
                     enemy_timer += 1
-                    if not zen and enemy_timer >= enemy_interval:
+                    if not zen and not boss_active and enemy_timer >= enemy_interval:
                         spawn_enemy(enemies, snake, food, biome_weights)
                         enemy_timer = 0
 
@@ -424,6 +473,10 @@ def game(wrap, difficulty, mode="CLASSIC"):
                     occupied = {tuple(e.pos) for e in enemies}
                     for e in enemies:
                         e.update(snake, food, occupied)
+
+                    # The Warden aims at the head and fires on its cooldown.
+                    if boss_active and boss is not None:
+                        boss.on_step(snake[0])
 
                     if bonus is not None:
                         bonus_timer -= 1
@@ -477,46 +530,23 @@ def game(wrap, difficulty, mode="CLASSIC"):
 
                     wall_death = (not wrap) and hit_wall(new_head)
                     ghost = "ghost" in effects   # phase through tail + enemies while active
-                    lethal = (not zen) and (wall_death or (not ghost and (
-                        hit_self(new_head, body_to_check) or hit_enemy(new_head, enemies))))
+                    boss_hazard = (boss.solid_cells() | boss.projectile_cells()) if boss_active and boss is not None else set()
+                    lethal = (not zen) and (wall_death
+                        or (tuple(new_head) in boss_hazard)
+                        or (not ghost and (
+                            hit_self(new_head, body_to_check) or hit_enemy(new_head, enemies))))
 
                     if lethal or end_run:
-                        game_over = True
-                        fever = False
-                        accumulator = 0.0
-                        if not zen:                       # Zen runs are unranked
-                            record_score(score, PLAYER_NAME)
-                            online.submit_async(PLAYER_NAME, score, 5)
-                        leaderboard = top_scores(5)
-
                         if lethal:
-                            play_sound("death")
-                            # Burst of debris from the head where it died.
-                            hx = snake[0][0] + CELL_SIZE // 2
-                            hy = snake[0][1] + CELL_SIZE // 2
-                            fx.burst(hx, hy, (235, 70, 84), count=34, speed=4.5, size=6, life=46)
-
-                            # Quick red flash + screen shake over the frozen scene.
-                            for alpha in (200, 150, 105, 65, 30, 0):
-                                buf = pygame.Surface((WIDTH, HEIGHT))
-                                draw_background(buf, WIDTH, HEIGHT, CELL_SIZE, HUD_HEIGHT, biome_bg, biome_grid, HUD_BG, INK)
-                                draw_food(buf, food, CELL_SIZE, sprites)
-                                if bonus is not None:
-                                    draw_bonus(buf, bonus, CELL_SIZE, sprites)
-                                draw_enemies(buf, enemies, CELL_SIZE, sprites)
-                                draw_snake(buf, snake, CELL_SIZE, sprites, direction)
-                                fx.update()
-                                fx.draw(buf)
-                                draw_hud(buf, score, high_score, enemies, font, big_font, INK)
-                                draw_overlay(buf, (220, 60, 60), alpha)
-                                draw_border(buf, WIDTH, HEIGHT, INK)
-                                mag = int(14 * (alpha / 200))
-                                dx = random.randint(-mag, mag) if mag else 0
-                                dy = random.randint(-mag, mag) if mag else 0
-                                screen.fill(biome_bg)
-                                screen.blit(buf, (dx, dy))
-                                pygame.display.update()
-                                clock.tick(40)
+                            kill()                        # finalize + death animation
+                        else:                             # ESC / time-up: finalize only
+                            game_over = True
+                            fever = False
+                            accumulator = 0.0
+                            if not zen:
+                                record_score(score, PLAYER_NAME)
+                                online.submit_async(PLAYER_NAME, score, 5)
+                            leaderboard = top_scores(5)
                         break   # leave the step loop; the game-over screen renders next frame
 
                     snake.insert(0, new_head)
@@ -565,9 +595,40 @@ def game(wrap, difficulty, mode="CLASSIC"):
 
                         if ate_food:
                             food = random_safe_position(snake, food, enemies)
+                            # Keep the apple off the Warden's body so it stays reachable.
+                            if boss_active and boss is not None:
+                                guard = 0
+                                while tuple(food) in boss.solid_cells() and guard < 40:
+                                    food = random_safe_position(snake, food, enemies)
+                                    guard += 1
                             if bonus is None and random.random() < BONUS_CHANCE:
                                 bonus = random_safe_position(snake, food, enemies)
                                 bonus_timer = BONUS_LIFETIME
+
+                            # Eating an apple during the fight drains the Warden.
+                            if boss_active and boss is not None:
+                                bx, by = boss.center_px()
+                                if boss.hit():        # defeated
+                                    score += BOSS_BONUS
+                                    fx.burst(bx, by, (255, 120, 200), count=60, speed=6.0, size=8, life=60)
+                                    fx.burst(bx, by, (255, 255, 255), count=30, speed=4.0, size=6, life=48)
+                                    popups.add(bx, by, f"+{BOSS_BONUS}", (255, 200, 80))
+                                    shake_timer, shake_mag = 20, 13.0
+                                    fever_flash = 8
+                                    play_sound("bonus")
+                                    award("void_slayer")
+                                    boss_active = False
+                                    boss_done = True
+                                    boss = None
+                                    boss_banner = 170
+                                    boss_banner_text = "WARDEN DEFEATED  +500"
+                                    if score > high_score:
+                                        high_score = score
+                                        save_high_score(high_score)
+                                else:                 # flinch
+                                    fx.burst(bx, by, (255, 120, 200), count=18, speed=4.0, size=6, life=34)
+                                    shake_timer, shake_mag = 7, 6.5
+                                    play_sound("powerup")
                     else:
                         snake.pop()
 
@@ -610,6 +671,14 @@ def game(wrap, difficulty, mode="CLASSIC"):
             if fever_flash > 0 and not paused:
                 fever_flash -= 1
 
+            # ---- Void Warden per-frame update ----
+            if boss_active and boss is not None and not paused and not game_over:
+                boss.advance(frame_ms)
+                if tuple(snake[0]) in boss.projectile_cells():
+                    kill()                # a projectile caught the stationary head
+            if boss_banner > 0 and not paused:
+                boss_banner -= 1
+
             # Evolving biomes: shift the board palette as the score climbs.
             if not paused and not game_over:
                 target_biome = (score // BIOME_EVERY) % len(BIOMES)
@@ -623,6 +692,15 @@ def game(wrap, difficulty, mode="CLASSIC"):
                     biome_banner = 150
                     if biome_idx == len(BIOMES) - 1:
                         award("globetrotter")
+                        # First arrival in THE VOID (outside Zen) wakes the Warden.
+                        if not zen and not boss_done and not boss_active:
+                            boss = Boss(WIDTH, HEIGHT)
+                            boss_active = True
+                            enemies.clear()
+                            boss_banner = 175
+                            boss_banner_text = "THE VOID WARDEN"
+                            shake_timer, shake_mag = 14, 9.0
+                            play_sound("fever")
             if biome_flash > 0 and not paused:
                 biome_flash -= 1
             if biome_banner > 0 and not paused:
@@ -677,6 +755,8 @@ def game(wrap, difficulty, mode="CLASSIC"):
                                 CELL_SIZE, fever_color, 0.35 + 0.45 * pulse)
             draw_snake(screen, snake, CELL_SIZE, sprites, direction, render_positions)
             fx.draw(screen)
+            if boss_active and boss is not None and not game_over:
+                draw_boss(screen, boss, CELL_SIZE)
             if fever:
                 draw_fever_vignette(screen, WIDTH, HEIGHT, HUD_HEIGHT, fever_color, 120 + 90 * pulse)
             if not game_over and not paused:
@@ -713,6 +793,8 @@ def game(wrap, difficulty, mode="CLASSIC"):
                 for i, (name, ticks) in enumerate(effects.items()):
                     cfg = POWERUP_EFFECTS[name]
                     draw_effect(screen, cfg["label"], ticks, cfg["duration"], font, cfg["color"], row=i)
+                if boss_active and boss is not None:
+                    draw_boss_hp(screen, boss, small_font, WIDTH, HEIGHT)
                 if is_muted():
                     draw_text_center(screen, "MUTED", HEIGHT - 36, font, (120, 124, 150))
 
@@ -726,6 +808,12 @@ def game(wrap, difficulty, mode="CLASSIC"):
                 img = big_font.render(biome_name, True, biome_tint)
                 img.set_alpha(a)
                 screen.blit(img, ((WIDTH - img.get_width()) // 2, HUD_HEIGHT + 22))
+
+            if boss_banner > 0 and not game_over:
+                a = 255 if boss_banner > 50 else int(255 * boss_banner / 50)
+                img = big_font.render(boss_banner_text, True, (255, 110, 200))
+                img.set_alpha(a)
+                screen.blit(img, ((WIDTH - img.get_width()) // 2, HEIGHT // 2 - 28))
 
             # Achievement toasts (stacked at the bottom, newest lowest).
             ty = HEIGHT - 70
