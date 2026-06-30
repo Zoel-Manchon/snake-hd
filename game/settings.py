@@ -99,7 +99,9 @@ BIOMES = [
 ]
 
 # --- Game modes (single-player) ---------------------------------------------
-GAME_MODES = ["CLASSIC", "TIME ATTACK", "ZEN"]
+GAME_MODES = ["CLASSIC", "TIME ATTACK", "ZEN", "DAILY"]
+DAILY_DIFFICULTY = "NORMAL"   # the Daily Challenge always runs this fixed config
+DAILY_WRAP = True             # so every player faces the same seeded conditions
 TIME_ATTACK_SECONDS = 60   # length of a Time Attack run
 
 # --- The Void Warden (boss encounter) ---------------------------------------

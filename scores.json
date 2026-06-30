@@ -558,5 +558,61 @@
     "score": 100,
     "prev_hash": "8a763e79e806f9c6d429ca83a332294ca0480a98d1acc1020e087ec66728d58a",
     "hash": "2f3ea2e14324a7d743f5b990f88d46ef0e81cc3ffca8253cb4526f4878491ea1"
+  },
+  {
+    "index": 70,
+    "timestamp": "2026-06-30T08:34:35.554101+00:00",
+    "name": "ZOEL",
+    "score": 18,
+    "prev_hash": "2f3ea2e14324a7d743f5b990f88d46ef0e81cc3ffca8253cb4526f4878491ea1",
+    "hash": "495b2f3d0dc01a1a5a5bcd5602511a8c23b6e44e5a171807ba7dc715eccdd64e"
+  },
+  {
+    "index": 71,
+    "timestamp": "2026-06-30T08:35:02.326943+00:00",
+    "name": "ZOEL",
+    "score": 15,
+    "prev_hash": "495b2f3d0dc01a1a5a5bcd5602511a8c23b6e44e5a171807ba7dc715eccdd64e",
+    "hash": "0931ab4f7ed3c7eb3ad58113f631eb46a30057b89e50039336d5e20928adf48f"
+  },
+  {
+    "index": 72,
+    "timestamp": "2026-06-30T08:35:57.891952+00:00",
+    "name": "ZOEL",
+    "score": 26,
+    "prev_hash": "0931ab4f7ed3c7eb3ad58113f631eb46a30057b89e50039336d5e20928adf48f",
+    "hash": "d64882d286cf7026f986a154e289c4f541ee7b7363913064d2c6dc9916d1e3a0"
+  },
+  {
+    "index": 73,
+    "timestamp": "2026-06-30T08:36:23.192232+00:00",
+    "name": "ZOEL",
+    "score": 30,
+    "prev_hash": "d64882d286cf7026f986a154e289c4f541ee7b7363913064d2c6dc9916d1e3a0",
+    "hash": "bdf8d9fc4f9daccf3d91422f72bca3dcd0341b19f5af967c8498d1c6feec2404"
+  },
+  {
+    "index": 74,
+    "timestamp": "2026-06-30T08:37:22.869580+00:00",
+    "name": "ZOEL",
+    "score": 26,
+    "prev_hash": "bdf8d9fc4f9daccf3d91422f72bca3dcd0341b19f5af967c8498d1c6feec2404",
+    "hash": "420296f0ca59e38550af2c10ccbfc0aba661a9e1de4611688c78d1f8da9c0fc9"
+  },
+  {
+    "index": 75,
+    "timestamp": "2026-06-30T08:38:00.791983+00:00",
+    "name": "ZOEL",
+    "score": 5,
+    "prev_hash": "420296f0ca59e38550af2c10ccbfc0aba661a9e1de4611688c78d1f8da9c0fc9",
+    "hash": "4e3afab2f5c33ea5adc3a34926968eb7e059bb862d9a3631d416160334259c4c"
+  },
+  {
+    "index": 76,
+    "timestamp": "2026-06-30T09:16:31.233862+00:00",
+    "name": "ZOEL",
+    "score": 177,
+    "prev_hash": "4e3afab2f5c33ea5adc3a34926968eb7e059bb862d9a3631d416160334259c4c",
+    "hash": "c30a530b8b58dbafd1374336c274f14cc07e2a2e40a10378f70f55702b62db82"
   }
 ]

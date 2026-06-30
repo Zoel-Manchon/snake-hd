@@ -38,6 +38,7 @@ from helpers.fx import ParticleSystem, FloatingTextSystem
 from helpers.ledger import record_score, top_scores
 from helpers import online
 from helpers import achievements
+from helpers import daily
 
 from game.settings import *
 from game.snake_logic import move_snake_head
@@ -321,6 +322,11 @@ def start_menu():
 def game(wrap, difficulty, mode="CLASSIC"):
     global high_score
 
+    daily_mode = mode == "DAILY"         # date-seeded run, own best/streak board
+    if daily_mode:                       # everyone plays the same fixed config
+        difficulty = DAILY_DIFFICULTY
+        wrap = DAILY_WRAP
+
     cfg = DIFFICULTIES[difficulty]
     base_speed = cfg["base_speed"]
     speed_cap = cfg["speed_cap"]
@@ -342,6 +348,13 @@ def game(wrap, difficulty, mode="CLASSIC"):
         prev_snake = [list(seg) for seg in snake]   # pre-step positions, for smooth rendering
         direction = "RIGHT"
         next_direction = "RIGHT"
+
+        # Daily Challenge: seed by date so the run is reproducible; otherwise
+        # reseed from OS entropy so a prior daily run doesn't fix later runs.
+        if daily_mode:
+            random.seed(daily.today_seed())
+        else:
+            random.seed()
 
         food = random_position()
         bonus = None          # golden apple position, or None when inactive
@@ -385,7 +398,9 @@ def game(wrap, difficulty, mode="CLASSIC"):
             game_over = True
             fever = False
             accumulator = 0.0
-            if not zen:                       # Zen runs are unranked
+            if daily_mode:                    # Daily records to its own board
+                daily.record(score)
+            elif not zen:                     # Zen runs are unranked
                 record_score(score, PLAYER_NAME)
                 online.submit_async(PLAYER_NAME, score, 5)
             leaderboard = top_scores(5)
@@ -591,7 +606,9 @@ def game(wrap, difficulty, mode="CLASSIC"):
                             game_over = True
                             fever = False
                             accumulator = 0.0
-                            if not zen:
+                            if daily_mode:
+                                daily.record(score)
+                            elif not zen:
                                 record_score(score, PLAYER_NAME)
                                 online.submit_async(PLAYER_NAME, score, 5)
                             leaderboard = top_scores(5)
@@ -820,17 +837,27 @@ def game(wrap, difficulty, mode="CLASSIC"):
             elif zen:
                 draw_hud(screen, score, high_score, enemies, font, big_font, INK,
                          right_override="ZEN", right_color=(150, 200, 255))
+            elif daily_mode:
+                draw_hud(screen, score, high_score, enemies, font, big_font, INK,
+                         right_override="DAILY", right_color=(210, 170, 90))
             else:
                 draw_hud(screen, score, high_score, enemies, font, big_font, INK)
 
             if game_over:
-                ostate = online.STATE
-                if ostate["status"] == "online":
-                    board, board_title = ostate["scores"], "GLOBAL TOP 5"
+                if daily_mode:
+                    board = daily.history(5)
+                    sk = daily.streak()
+                    board_title = f"DAILY {daily.today_str()[5:]}   STREAK {sk}"
+                    draw_game_over_panel(screen, score, high_score, font, big_font, HUD_BG, INK,
+                                         board, ACCENT, go_sel, board_title, None)
                 else:
-                    board, board_title = leaderboard, "LOCAL TOP 5"
-                draw_game_over_panel(screen, score, high_score, font, big_font, HUD_BG, INK,
-                                     board, ACCENT, go_sel, board_title, ostate["status"])
+                    ostate = online.STATE
+                    if ostate["status"] == "online":
+                        board, board_title = ostate["scores"], "GLOBAL TOP 5"
+                    else:
+                        board, board_title = leaderboard, "LOCAL TOP 5"
+                    draw_game_over_panel(screen, score, high_score, font, big_font, HUD_BG, INK,
+                                         board, ACCENT, go_sel, board_title, ostate["status"])
             elif paused:
                 draw_text_center(screen, "PAUSED", 340, big_font, ACCENT)
                 draw_text_center(screen, "Press P to resume", 430, font, INK)
