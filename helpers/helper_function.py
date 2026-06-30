@@ -480,3 +480,33 @@ def draw_boss_hp(screen, boss, font, width, height):
             pygame.draw.rect(screen, fill, rect, border_radius=4)
         else:
             pygame.draw.rect(screen, (66, 54, 78), rect, 2, border_radius=4)
+
+
+def draw_achievement_card(screen, x, y, w, h, name, desc, unlocked, name_font, desc_font):
+    """One achievement tile: a badge (check when unlocked, padlock when not),
+    the name, and its description. Green + bright when unlocked, dim when locked."""
+    accent = (95, 208, 104)
+    if unlocked:
+        bg, border, name_col, desc_col = (22, 40, 28), accent, accent, (168, 198, 178)
+    else:
+        bg, border, name_col, desc_col = (22, 24, 34), (58, 62, 82), (120, 124, 150), (88, 92, 116)
+
+    card = pygame.Surface((w, h), pygame.SRCALPHA)
+    pygame.draw.rect(card, (bg[0], bg[1], bg[2], 235), (0, 0, w, h), border_radius=12)
+    pygame.draw.rect(card, border, (0, 0, w, h), 2, border_radius=12)
+    screen.blit(card, (x, y))
+
+    bcx, bcy, r = x + 44, y + h // 2, 26
+    if unlocked:
+        pygame.draw.circle(screen, accent, (bcx, bcy), r)
+        pygame.draw.lines(screen, (16, 20, 24), False,
+                          [(bcx - 11, bcy + 1), (bcx - 3, bcy + 10), (bcx + 12, bcy - 9)], 4)
+    else:
+        pygame.draw.circle(screen, (40, 44, 60), (bcx, bcy), r)
+        pygame.draw.circle(screen, (96, 100, 126), (bcx, bcy), r, 2)
+        body = pygame.Rect(bcx - 9, bcy - 1, 18, 13)
+        pygame.draw.rect(screen, (120, 124, 150), body, border_radius=3)
+        pygame.draw.arc(screen, (120, 124, 150), (bcx - 7, bcy - 13, 14, 18), 0.2, 3.0, 3)
+
+    screen.blit(name_font.render(name, True, name_col), (x + 86, y + 20))
+    screen.blit(desc_font.render(desc, True, desc_col), (x + 86, y + h - 34))

@@ -29,6 +29,7 @@ from helpers.helper_function import (
     draw_versus_snake,
     draw_boss,
     draw_boss_hp,
+    draw_achievement_card,
 )
 
 from helpers.storage import load_high_score, save_high_score
@@ -166,6 +167,48 @@ class DemoSnake:
         return out
 
 
+def achievements_screen():
+    """A browsable gallery of all achievements: unlocked ones lit green with a
+    check, locked ones dimmed with a padlock. ESC / A / ENTER returns to menu.
+    Returns "quit" if the window was closed."""
+    items = achievements.all_list()          # (id, name, desc, unlocked)
+    margin_x, gap_x, gap_y = 60, 40, 15
+    card_w = (WIDTH - 2 * margin_x - gap_x) // 2
+    card_h, y0 = 100, 150
+    shown = False
+
+    while True:
+        screen.fill(BG)
+        u, t = achievements.unlocked_count(), achievements.total()
+        draw_text_center(screen, "ACHIEVEMENTS", 44, big_font, ACCENT)
+        draw_text_center(screen, f"{u} / {t} UNLOCKED", 110, font, INK)
+
+        for i, (_aid, name, desc, unlocked) in enumerate(items):
+            col, rowi = i % 2, i // 2
+            x = margin_x + col * (card_w + gap_x)
+            y = y0 + rowi * (card_h + gap_y)
+            draw_achievement_card(screen, x, y, card_w, card_h,
+                                  name, desc, unlocked, font, small_font)
+
+        draw_text_center(screen, "ESC / A   BACK", 758, small_font, (120, 124, 150))
+        draw_border(screen, WIDTH, HEIGHT, INK)
+
+        if not shown:
+            fade_in_current()
+            shown = True
+        else:
+            pygame.display.update()
+        clock.tick(60)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return "quit"
+            if event.type == pygame.KEYDOWN and event.key in (
+                    pygame.K_ESCAPE, pygame.K_a, pygame.K_RETURN, pygame.K_q):
+                fade_out_current()
+                return None
+
+
 def start_menu():
     modes = [("SCREEN WRAP", True), ("WALLS", False)]
     mode_idx = 0
@@ -215,7 +258,7 @@ def start_menu():
                 line = small_font.render(f"{i + 1}. {sc:>5}  {str(nm)[:8]}", True, INK)
                 screen.blit(line, (bx + 16, by + 36 + i * 22))
 
-        ach = f"ACHIEVEMENTS  {achievements.unlocked_count()}/{achievements.total()}"
+        ach = f"ACHIEVEMENTS  {achievements.unlocked_count()}/{achievements.total()}  (A)"
         aimg = small_font.render(ach, True, ACCENT)
         screen.blit(aimg, (WIDTH - aimg.get_width() - 36, 104))
 
@@ -264,6 +307,11 @@ def start_menu():
                         pl_idx = (pl_idx + step) % len(players)
                 elif event.key == pygame.K_m:
                     toggle_mute()
+                elif event.key == pygame.K_a:
+                    fade_out_current()
+                    if achievements_screen() == "quit":
+                        return None
+                    faded_in = False        # fade the menu back in on return
                 elif event.key == pygame.K_RETURN:
                     fade_out_current()
                     return (modes[mode_idx][1], DIFFICULTY_ORDER[diff_idx],
