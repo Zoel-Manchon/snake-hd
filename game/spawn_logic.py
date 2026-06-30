@@ -19,7 +19,7 @@ def random_safe_position(snake, food, enemies):
             return position
 
 
-def spawn_enemy(enemies, snake, food):
+def spawn_enemy(enemies, snake, food, weights=None):
     """Add a new enemy of a randomly weighted kind in a free cell."""
     pos = random_safe_position(snake, food, enemies)
-    enemies.append(Enemy(pos, weighted_choice()))
+    enemies.append(Enemy(pos, weighted_choice(weights)))

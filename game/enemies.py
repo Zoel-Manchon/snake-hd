@@ -21,11 +21,11 @@ from game.settings import (
 _STEPS = [(CELL_SIZE, 0), (-CELL_SIZE, 0), (0, CELL_SIZE), (0, -CELL_SIZE)]
 
 
-def weighted_choice():
-    """Pick an enemy kind using the spawn weights from settings."""
-    kinds = list(ENEMY_WEIGHTS.keys())
-    weights = list(ENEMY_WEIGHTS.values())
-    return random.choices(kinds, weights=weights, k=1)[0]
+def weighted_choice(weights=None):
+    """Pick an enemy kind using spawn weights (per-biome override, else settings)."""
+    table = weights or ENEMY_WEIGHTS
+    kinds = list(table.keys())
+    return random.choices(kinds, weights=list(table.values()), k=1)[0]
 
 
 class Enemy:

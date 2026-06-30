@@ -1,15 +1,6 @@
-# Virtual environments
-.venv/
-venv/
-
-# Python
 __pycache__/
 *.pyc
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# IDEs
-.vscode/
-.idea/
+scores.json
+highscore.txt
+achievements.json
+server/target/

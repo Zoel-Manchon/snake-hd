@@ -26,12 +26,15 @@ from helpers.helper_function import (
     draw_fever_meter,
     draw_flash,
     draw_wave_text,
+    draw_versus_snake,
 )
 
 from helpers.storage import load_high_score, save_high_score
 from helpers.audio import init_audio, play_sound, play_eat, start_music, toggle_mute, is_muted
 from helpers.fx import ParticleSystem, FloatingTextSystem
 from helpers.ledger import record_score, top_scores
+from helpers import online
+from helpers import achievements
 
 from game.settings import *
 from game.snake_logic import move_snake_head
@@ -55,6 +58,9 @@ small_font = pygame.font.Font("assets/PressStart2P.ttf", 14)
 
 # Load the sprite set once (needs the display to exist for convert_alpha).
 sprites = load_sprites(CELL_SIZE)
+# Player-2 sprite set for versus: same art, orange recolour for head/body/tail.
+sprites_p2 = {**sprites,
+              "head": sprites["head_p2"], "body": sprites["body_p2"], "tail": sprites["tail_p2"]}
 
 high_score = load_high_score()
 
@@ -161,11 +167,15 @@ def start_menu():
     modes = [("SCREEN WRAP", True), ("WALLS", False)]
     mode_idx = 0
     diff_idx = DIFFICULTY_ORDER.index("NORMAL")
-    row = 0  # 0 = mode row, 1 = difficulty row
+    gm_idx = 0
+    players = [("1 PLAYER", 1), ("2 PLAYERS", 2)]
+    pl_idx = 0
+    row = 0  # 0 = mode, 1 = difficulty, 2 = game mode, 3 = players
 
     demo = DemoSnake()
     phase = 0.0
     faded_in = False
+    online.fetch_board_async(5)   # pull the global board for display (non-blocking)
 
     while True:
         dt = clock.tick(60)
@@ -179,24 +189,49 @@ def start_menu():
         draw_snake(screen, demo.cells, CELL_SIZE, sprites, demo.dir_name, demo.positions())
 
         # Dim panel so the text stays readable over the moving snake.
-        panel = pygame.Surface((780, 340), pygame.SRCALPHA)
+        panel = pygame.Surface((780, 372), pygame.SRCALPHA)
         panel.fill((10, 12, 22, 185))
         pygame.draw.rect(panel, (*ACCENT, 70), panel.get_rect(), 2, border_radius=14)
-        screen.blit(panel, ((WIDTH - 780) // 2, 248))
+        screen.blit(panel, ((WIDTH - 780) // 2, 244))
 
         # Animated logo: a travelling wave + a gentle green shimmer.
         title_color = lerp_color(ACCENT, (170, 245, 180), 0.5 + 0.5 * math.sin(phase * 2.2))
         draw_wave_text(screen, "SNAKE", WIDTH // 2, 140, big_font, title_color, phase * 3.5, amp=12)
 
+        # Global leaderboard (top-left) when the server is reachable.
+        board = online.BOARD
+        if board["status"] == "online" and board["scores"]:
+            bx, by, bw = 36, 96, 290
+            rows = board["scores"][:5]
+            bp = pygame.Surface((bw, 40 + len(rows) * 22), pygame.SRCALPHA)
+            bp.fill((10, 12, 22, 180))
+            pygame.draw.rect(bp, (*ACCENT, 70), bp.get_rect(), 2, border_radius=10)
+            screen.blit(bp, (bx, by))
+            screen.blit(small_font.render("GLOBAL TOP 5", True, ACCENT), (bx + 16, by + 12))
+            for i, (nm, sc) in enumerate(rows):
+                line = small_font.render(f"{i + 1}. {sc:>5}  {str(nm)[:8]}", True, INK)
+                screen.blit(line, (bx + 16, by + 36 + i * 22))
+
+        ach = f"ACHIEVEMENTS  {achievements.unlocked_count()}/{achievements.total()}"
+        aimg = small_font.render(ach, True, ACCENT)
+        screen.blit(aimg, (WIDTH - aimg.get_width() - 36, 104))
+
         mode_color = ACCENT if row == 0 else INK
         diff_color = ACCENT if row == 1 else INK
-        draw_text_center(screen, f"MODE:   < {modes[mode_idx][0]} >", 300, font, mode_color)
-        draw_text_center(screen, f"DIFFICULTY:   < {DIFFICULTY_ORDER[diff_idx]} >", 350, font, diff_color)
+        gm_color = ACCENT if row == 2 else INK
+        play_color = ACCENT if row == 3 else INK
+        draw_text_center(screen, f"MODE:   < {modes[mode_idx][0]} >", 292, font, mode_color)
+        draw_text_center(screen, f"DIFFICULTY:   < {DIFFICULTY_ORDER[diff_idx]} >", 334, font, diff_color)
+        draw_text_center(screen, f"GAME MODE:   < {GAME_MODES[gm_idx]} >", 376, font, gm_color)
+        draw_text_center(screen, f"PLAYERS:   < {players[pl_idx][0]} >", 418, font, play_color)
 
-        draw_text_center(screen, "UP/DOWN select    LEFT/RIGHT change", 460, font, INK)
-        draw_text_center(screen, "ENTER start    P pauses", 505, font, INK)
+        if players[pl_idx][1] == 2:
+            draw_text_center(screen, "P1 ARROWS    P2 WASD", 456, small_font, (150, 200, 255))
+
+        draw_text_center(screen, "UP/DOWN SELECT     LEFT/RIGHT CHANGE", 494, small_font, INK)
+        draw_text_center(screen, "ENTER START     P PAUSE     ESC END RUN", 522, small_font, INK)
         sound_label = "M: SOUND OFF" if is_muted() else "M: SOUND ON"
-        draw_text_center(screen, sound_label, 550, font, INK)
+        draw_text_center(screen, sound_label, 550, small_font, INK)
 
         draw_border(screen, WIDTH, HEIGHT, INK)
         if not faded_in:
@@ -210,22 +245,29 @@ def start_menu():
                 return None
 
             if event.type == pygame.KEYDOWN:
-                if event.key in (pygame.K_UP, pygame.K_DOWN):
-                    row = (row + 1) % 2
+                if event.key == pygame.K_UP:
+                    row = (row - 1) % 4
+                elif event.key == pygame.K_DOWN:
+                    row = (row + 1) % 4
                 elif event.key in (pygame.K_LEFT, pygame.K_RIGHT):
                     step = 1 if event.key == pygame.K_RIGHT else -1
                     if row == 0:
                         mode_idx = (mode_idx + step) % len(modes)
-                    else:
+                    elif row == 1:
                         diff_idx = (diff_idx + step) % len(DIFFICULTY_ORDER)
+                    elif row == 2:
+                        gm_idx = (gm_idx + step) % len(GAME_MODES)
+                    else:
+                        pl_idx = (pl_idx + step) % len(players)
                 elif event.key == pygame.K_m:
                     toggle_mute()
                 elif event.key == pygame.K_RETURN:
                     fade_out_current()
-                    return modes[mode_idx][1], DIFFICULTY_ORDER[diff_idx]
+                    return (modes[mode_idx][1], DIFFICULTY_ORDER[diff_idx],
+                            GAME_MODES[gm_idx], players[pl_idx][1])
 
 
-def game(wrap, difficulty):
+def game(wrap, difficulty, mode="CLASSIC"):
     global high_score
 
     cfg = DIFFICULTIES[difficulty]
@@ -233,6 +275,12 @@ def game(wrap, difficulty):
     speed_cap = cfg["speed_cap"]
     enemy_interval = cfg["enemy_interval"]
     start_enemies = cfg["start_enemies"]
+
+    zen = mode == "ZEN"                  # no enemies, no death - just grow
+    time_attack = mode == "TIME ATTACK"  # race a fixed clock
+    if zen:
+        wrap = True                      # nothing to crash into; always wrap
+        start_enemies = 0
 
     did_fade_in = False   # fade the first frame in from black once per entry
 
@@ -255,6 +303,22 @@ def game(wrap, difficulty):
         fever_flash = 0       # frames of the white ignite flash remaining
         shake_timer = 0       # frames of screen-shake remaining
         shake_mag = 0.0       # current shake magnitude in pixels
+        biome_idx = 0         # current biome; advances as the score climbs
+        biome_bg = BIOMES[0]["bg"]
+        biome_grid = BIOMES[0]["grid"]
+        biome_tint = BIOMES[0]["tint"]
+        biome_weights = BIOMES[0].get("weights")   # per-biome enemy mix
+        biome_name = ""       # name to flash when entering a new biome
+        biome_flash = 0       # frames of the biome-entry colour flash
+        biome_banner = 0      # frames the biome name stays on screen
+        time_left = TIME_ATTACK_SECONDS * 1000 if time_attack else 0   # ms, Time Attack
+        end_run = False       # set by ESC / time-up to finish the run
+        toasts = []           # achievement toast queue: [name, frames_left]
+
+        def award(aid):
+            if achievements.unlock(aid):
+                toasts.append([achievements.NAME[aid], 210])
+                play_sound("bonus")
         powerup = None        # pickup position on the board, or None
         powerup_kind = None   # which power-up the current pickup grants
         powerup_life = 0      # steps before the pickup vanishes
@@ -273,6 +337,7 @@ def game(wrap, difficulty):
         fx.clear()
         popups.clear()
         leaderboard = []   # filled in from the ledger when the run ends
+        online.reset()     # clear any global-board state from the previous run
         go_sel = 0         # game-over menu selection: 0 restart, 1 menu, 2 quit
 
         running = True
@@ -308,6 +373,9 @@ def game(wrap, difficulty):
 
                     if event.key == pygame.K_p:
                         paused = not paused
+
+                    if event.key == pygame.K_ESCAPE and not game_over:
+                        end_run = True   # finish the run -> game-over panel
 
                     if event.key == pygame.K_m:
                         toggle_mute()
@@ -348,8 +416,8 @@ def game(wrap, difficulty):
                     prev_snake = [list(seg) for seg in snake]   # state before this step
 
                     enemy_timer += 1
-                    if enemy_timer >= enemy_interval:
-                        spawn_enemy(enemies, snake, food)
+                    if not zen and enemy_timer >= enemy_interval:
+                        spawn_enemy(enemies, snake, food, biome_weights)
                         enemy_timer = 0
 
                     # Drifters slide, blinkers phase on/off.
@@ -409,42 +477,46 @@ def game(wrap, difficulty):
 
                     wall_death = (not wrap) and hit_wall(new_head)
                     ghost = "ghost" in effects   # phase through tail + enemies while active
+                    lethal = (not zen) and (wall_death or (not ghost and (
+                        hit_self(new_head, body_to_check) or hit_enemy(new_head, enemies))))
 
-                    if wall_death or (not ghost and (hit_self(new_head, body_to_check)
-                                                     or hit_enemy(new_head, enemies))):
+                    if lethal or end_run:
                         game_over = True
                         fever = False
                         accumulator = 0.0
-                        play_sound("death")
-                        record_score(score, PLAYER_NAME)
+                        if not zen:                       # Zen runs are unranked
+                            record_score(score, PLAYER_NAME)
+                            online.submit_async(PLAYER_NAME, score, 5)
                         leaderboard = top_scores(5)
 
-                        # Burst of debris from the head where it died.
-                        hx = snake[0][0] + CELL_SIZE // 2
-                        hy = snake[0][1] + CELL_SIZE // 2
-                        fx.burst(hx, hy, (235, 70, 84), count=34, speed=4.5, size=6, life=46)
+                        if lethal:
+                            play_sound("death")
+                            # Burst of debris from the head where it died.
+                            hx = snake[0][0] + CELL_SIZE // 2
+                            hy = snake[0][1] + CELL_SIZE // 2
+                            fx.burst(hx, hy, (235, 70, 84), count=34, speed=4.5, size=6, life=46)
 
-                        # Quick red flash + screen shake over the frozen scene.
-                        for alpha in (200, 150, 105, 65, 30, 0):
-                            buf = pygame.Surface((WIDTH, HEIGHT))
-                            draw_background(buf, WIDTH, HEIGHT, CELL_SIZE, HUD_HEIGHT, BG, GRID, HUD_BG, INK)
-                            draw_food(buf, food, CELL_SIZE, sprites)
-                            if bonus is not None:
-                                draw_bonus(buf, bonus, CELL_SIZE, sprites)
-                            draw_enemies(buf, enemies, CELL_SIZE, sprites)
-                            draw_snake(buf, snake, CELL_SIZE, sprites, direction)
-                            fx.update()
-                            fx.draw(buf)
-                            draw_hud(buf, score, high_score, enemies, font, big_font, INK)
-                            draw_overlay(buf, (220, 60, 60), alpha)
-                            draw_border(buf, WIDTH, HEIGHT, INK)
-                            mag = int(14 * (alpha / 200))
-                            dx = random.randint(-mag, mag) if mag else 0
-                            dy = random.randint(-mag, mag) if mag else 0
-                            screen.fill(BG)
-                            screen.blit(buf, (dx, dy))
-                            pygame.display.update()
-                            clock.tick(40)
+                            # Quick red flash + screen shake over the frozen scene.
+                            for alpha in (200, 150, 105, 65, 30, 0):
+                                buf = pygame.Surface((WIDTH, HEIGHT))
+                                draw_background(buf, WIDTH, HEIGHT, CELL_SIZE, HUD_HEIGHT, biome_bg, biome_grid, HUD_BG, INK)
+                                draw_food(buf, food, CELL_SIZE, sprites)
+                                if bonus is not None:
+                                    draw_bonus(buf, bonus, CELL_SIZE, sprites)
+                                draw_enemies(buf, enemies, CELL_SIZE, sprites)
+                                draw_snake(buf, snake, CELL_SIZE, sprites, direction)
+                                fx.update()
+                                fx.draw(buf)
+                                draw_hud(buf, score, high_score, enemies, font, big_font, INK)
+                                draw_overlay(buf, (220, 60, 60), alpha)
+                                draw_border(buf, WIDTH, HEIGHT, INK)
+                                mag = int(14 * (alpha / 200))
+                                dx = random.randint(-mag, mag) if mag else 0
+                                dy = random.randint(-mag, mag) if mag else 0
+                                screen.fill(biome_bg)
+                                screen.blit(buf, (dx, dy))
+                                pygame.display.update()
+                                clock.tick(40)
                         break   # leave the step loop; the game-over screen renders next frame
 
                     snake.insert(0, new_head)
@@ -475,6 +547,7 @@ def game(wrap, difficulty):
                                     fever_flash = 8
                                     shake_timer, shake_mag = 9, 8.0
                                     play_sound("fever")
+                                    award("on_fire")
                                 fever_timer = FEVER_DURATION
                             gained = combo * mult * (FEVER_MULT if fever else 1)
                             score += gained
@@ -537,6 +610,48 @@ def game(wrap, difficulty):
             if fever_flash > 0 and not paused:
                 fever_flash -= 1
 
+            # Evolving biomes: shift the board palette as the score climbs.
+            if not paused and not game_over:
+                target_biome = (score // BIOME_EVERY) % len(BIOMES)
+                if target_biome != biome_idx:
+                    biome_idx = target_biome
+                    b = BIOMES[biome_idx]
+                    biome_bg, biome_grid, biome_tint = b["bg"], b["grid"], b["tint"]
+                    biome_weights = b.get("weights")
+                    biome_name = b["name"]
+                    biome_flash = 12
+                    biome_banner = 150
+                    if biome_idx == len(BIOMES) - 1:
+                        award("globetrotter")
+            if biome_flash > 0 and not paused:
+                biome_flash -= 1
+            if biome_banner > 0 and not paused:
+                biome_banner -= 1
+
+            # Time Attack: run the clock down; at zero the run ends.
+            if time_attack and not paused and not game_over:
+                time_left -= frame_ms
+                if time_left <= 0:
+                    time_left = 0
+                    end_run = True
+
+            # Achievement checks (award() is a no-op once unlocked).
+            if not game_over and not paused:
+                if score >= 10:
+                    award("first_blood")
+                if score >= 100:
+                    award("century")
+                if score >= 250:
+                    award("survivor")
+                if combo >= COMBO_MAX:
+                    award("combo_master")
+                if "ghost" in effects:
+                    award("phase_shift")
+                if time_attack and score >= 50:
+                    award("beat_clock")
+                if zen and len(snake) >= 50:
+                    award("zen_master")
+
             pulse = 0.0
             fever_color = FEVER_COLORS[0]
             if fever:
@@ -545,7 +660,7 @@ def game(wrap, difficulty):
                 fever_color = lerp_color(FEVER_COLORS[0], FEVER_COLORS[1], sweep)
 
             # ---- render (every frame) ----
-            draw_background(screen, WIDTH, HEIGHT, CELL_SIZE, HUD_HEIGHT, BG, GRID, HUD_BG, INK)
+            draw_background(screen, WIDTH, HEIGHT, CELL_SIZE, HUD_HEIGHT, biome_bg, biome_grid, HUD_BG, INK)
             if fever:
                 draw_fever_tint(screen, WIDTH, HEIGHT, HUD_HEIGHT, fever_color, 26 + 30 * pulse)
             draw_food(screen, food, CELL_SIZE, sprites)
@@ -567,10 +682,25 @@ def game(wrap, difficulty):
             if not game_over and not paused:
                 popups.draw(screen)
 
-            draw_hud(screen, score, high_score, enemies, font, big_font, INK)
+            if time_attack:
+                secs = int(max(0, time_left) // 1000)
+                tcol = (235, 90, 90) if secs <= 10 else INK   # red in the final 10s
+                draw_hud(screen, score, high_score, enemies, font, big_font, INK,
+                         timer=f"{secs // 60}:{secs % 60:02d}", timer_color=tcol)
+            elif zen:
+                draw_hud(screen, score, high_score, enemies, font, big_font, INK,
+                         right_override="ZEN", right_color=(150, 200, 255))
+            else:
+                draw_hud(screen, score, high_score, enemies, font, big_font, INK)
 
             if game_over:
-                draw_game_over_panel(screen, score, high_score, font, big_font, HUD_BG, INK, leaderboard, ACCENT, go_sel)
+                ostate = online.STATE
+                if ostate["status"] == "online":
+                    board, board_title = ostate["scores"], "GLOBAL TOP 5"
+                else:
+                    board, board_title = leaderboard, "LOCAL TOP 5"
+                draw_game_over_panel(screen, score, high_score, font, big_font, HUD_BG, INK,
+                                     board, ACCENT, go_sel, board_title, ostate["status"])
             elif paused:
                 draw_text_center(screen, "PAUSED", 340, big_font, ACCENT)
                 draw_text_center(screen, "Press P to resume", 430, font, INK)
@@ -588,6 +718,32 @@ def game(wrap, difficulty):
 
             if fever_flash > 0:
                 draw_flash(screen, 200 * fever_flash / 8)
+
+            if biome_flash > 0:
+                draw_overlay(screen, biome_tint, int(85 * biome_flash / 12))
+            if biome_banner > 0 and not game_over:
+                a = 255 if biome_banner > 40 else int(255 * biome_banner / 40)
+                img = big_font.render(biome_name, True, biome_tint)
+                img.set_alpha(a)
+                screen.blit(img, ((WIDTH - img.get_width()) // 2, HUD_HEIGHT + 22))
+
+            # Achievement toasts (stacked at the bottom, newest lowest).
+            ty = HEIGHT - 70
+            for toast in toasts:
+                name, timer = toast
+                a = 255 if timer > 40 else int(255 * timer / 40)
+                label = small_font.render(f"ACHIEVEMENT   {name}", True, (16, 18, 28))
+                pad = 18
+                w = label.get_width() + pad * 2
+                pill = pygame.Surface((w, 34), pygame.SRCALPHA)
+                pygame.draw.rect(pill, (*ACCENT, a), pill.get_rect(), border_radius=9)
+                px = (WIDTH - w) // 2
+                screen.blit(pill, (px, ty))
+                label.set_alpha(a)
+                screen.blit(label, (px + pad, ty + 9))
+                toast[1] -= 1
+                ty -= 42
+            toasts[:] = [t for t in toasts if t[1] > 0]
 
             draw_fps(screen, clock, small_font)
             draw_border(screen, WIDTH, HEIGHT, INK)
@@ -608,13 +764,247 @@ def game(wrap, difficulty):
             else:
                 pygame.display.update()
 
+class VSnake:
+    """A player snake for versus mode (smooth interpolation, no-reverse turns)."""
+
+    def __init__(self, cells, direction, color, dark):
+        self.cells = [list(c) for c in cells]
+        self.prev = [list(c) for c in self.cells]
+        self.dir = list(direction)
+        self.next_dir = list(direction)
+        self.alive = True
+        self.color = color
+        self.dark = dark
+
+    @property
+    def head(self):
+        return self.cells[0]
+
+    @property
+    def dir_name(self):
+        return _DIR_NAME.get((self.dir[0], self.dir[1]), "RIGHT")
+
+    def turn(self, d):
+        if [-self.dir[0], -self.dir[1]] != list(d):   # can't instantly reverse
+            self.next_dir = list(d)
+
+    def positions(self, t):
+        out = []
+        for i, cur in enumerate(self.cells):
+            prv = self.prev[i] if i < len(self.prev) else cur
+            dx, dy = cur[0] - prv[0], cur[1] - prv[1]
+            if abs(dx) > CELL_SIZE or abs(dy) > CELL_SIZE:
+                out.append([cur[0], cur[1]])
+            else:
+                out.append([prv[0] + dx * t, prv[1] + dy * t])
+        return out
+
+
+def _vs_wrap(p):
+    span = HEIGHT - HUD_HEIGHT
+    return [p[0] % WIDTH, (p[1] - HUD_HEIGHT) % span + HUD_HEIGHT]
+
+
+def _versus_step(a, b, food, wrap):
+    """Advance both snakes one step simultaneously; returns (dead_a, dead_b, ate_a, ate_b)."""
+    a.dir, b.dir = list(a.next_dir), list(b.next_dir)
+    ah = [a.head[0] + a.dir[0], a.head[1] + a.dir[1]]
+    bh = [b.head[0] + b.dir[0], b.head[1] + b.dir[1]]
+
+    awall = bwall = False
+    if wrap:
+        ah, bh = _vs_wrap(ah), _vs_wrap(bh)
+    else:
+        awall = ah[0] < 0 or ah[0] >= WIDTH or ah[1] < HUD_HEIGHT or ah[1] >= HEIGHT
+        bwall = bh[0] < 0 or bh[0] >= WIDTH or bh[1] < HUD_HEIGHT or bh[1] >= HEIGHT
+
+    ate_a = (not awall) and ah == list(food)
+    ate_b = (not bwall) and bh == list(food)
+    abody = a.cells if ate_a else a.cells[:-1]      # tail vacates unless growing
+    bbody = b.cells if ate_b else b.cells[:-1]
+    occ = {tuple(c) for c in abody} | {tuple(c) for c in bbody}
+
+    dead_a = awall or tuple(ah) in occ or ah == bh   # ah==bh -> head-on, both die
+    dead_b = bwall or tuple(bh) in occ or bh == ah
+
+    a.prev = [list(c) for c in a.cells]
+    b.prev = [list(c) for c in b.cells]
+    if not dead_a:
+        a.cells.insert(0, ah)
+        if not ate_a:
+            a.cells.pop()
+    if not dead_b:
+        b.cells.insert(0, bh)
+        if not ate_b:
+            b.cells.pop()
+    a.alive, b.alive = not dead_a, not dead_b
+    return dead_a, dead_b, ate_a, ate_b
+
+
+def _vs_food(p1, p2):
+    occ = {tuple(c) for c in p1.cells} | {tuple(c) for c in p2.cells}
+    cols, rows = WIDTH // CELL_SIZE, (HEIGHT - HUD_HEIGHT) // CELL_SIZE
+    while True:
+        c = [random.randrange(cols) * CELL_SIZE, HUD_HEIGHT + random.randrange(rows) * CELL_SIZE]
+        if tuple(c) not in occ:
+            return c
+
+
+def _vs_setup(wrap):
+    midy = HUD_HEIGHT + ((HEIGHT - HUD_HEIGHT) // CELL_SIZE // 2) * CELL_SIZE
+    p1 = VSnake([[CELL_SIZE * (5 - i), midy] for i in range(4)], (CELL_SIZE, 0), VS_P1, VS_P1_D)
+    rx = WIDTH - CELL_SIZE * 5
+    p2 = VSnake([[rx + CELL_SIZE * i, midy] for i in range(4)], (-CELL_SIZE, 0), VS_P2, VS_P2_D)
+    return p1, p2, _vs_food(p1, p2)
+
+
+def _vs_render(p1, p2, food, p1w, p2w, round_num, t):
+    draw_background(screen, WIDTH, HEIGHT, CELL_SIZE, HUD_HEIGHT, BG, GRID, HUD_BG, INK)
+    draw_food(screen, food, CELL_SIZE, sprites)
+    draw_snake(screen, p1.cells, CELL_SIZE, sprites, p1.dir_name, p1.positions(t))
+    draw_snake(screen, p2.cells, CELL_SIZE, sprites_p2, p2.dir_name, p2.positions(t))
+    fx.draw(screen)
+    s1 = font.render(f"P1  {p1w}", True, VS_P1)
+    screen.blit(s1, (24, 28))
+    s2 = font.render(f"{p2w}  P2", True, VS_P2)
+    screen.blit(s2, (WIDTH - 24 - s2.get_width(), 28))
+    draw_text_center(screen, f"ROUND {round_num}   FIRST TO {VS_WINS_TARGET}", 28, font, INK)
+    if is_muted():
+        draw_text_center(screen, "MUTED", HEIGHT - 36, font, (120, 124, 150))
+
+
+def _versus_round(wrap, p1w, p2w, round_num):
+    p1, p2, food = _vs_setup(wrap)
+    acc = 0.0
+
+    for label in ("3", "2", "1", "GO!"):
+        end = pygame.time.get_ticks() + 550
+        while pygame.time.get_ticks() < end:
+            for e in pygame.event.get():
+                if e.type == pygame.QUIT:
+                    return "quit"
+                if e.type == pygame.KEYDOWN and e.key == pygame.K_m:
+                    toggle_mute()
+            _vs_render(p1, p2, food, p1w, p2w, round_num, 0.0)
+            draw_text_center(screen, label, HEIGHT // 2 - 30, big_font, ACCENT)
+            draw_border(screen, WIDTH, HEIGHT, INK)
+            pygame.display.update()
+            clock.tick(60)
+
+    turns = {pygame.K_UP: (0, -CELL_SIZE), pygame.K_DOWN: (0, CELL_SIZE),
+             pygame.K_LEFT: (-CELL_SIZE, 0), pygame.K_RIGHT: (CELL_SIZE, 0)}
+    wasd = {pygame.K_w: (0, -CELL_SIZE), pygame.K_s: (0, CELL_SIZE),
+            pygame.K_a: (-CELL_SIZE, 0), pygame.K_d: (CELL_SIZE, 0)}
+
+    while p1.alive and p2.alive:
+        frame_ms = clock.tick(60)
+        acc = min(acc + frame_ms, 250.0)
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                return "quit"
+            if e.type == pygame.KEYDOWN:
+                if e.key == pygame.K_m:
+                    toggle_mute()
+                elif e.key in turns:
+                    p1.turn(turns[e.key])
+                elif e.key in wasd:
+                    p2.turn(wasd[e.key])
+
+        while acc >= VS_STEP_MS and p1.alive and p2.alive:
+            acc -= VS_STEP_MS
+            da, db, ea, eb = _versus_step(p1, p2, food, wrap)
+            for snake, ate in ((p1, ea), (p2, eb)):
+                if ate:
+                    fx.burst(snake.head[0] + CELL_SIZE // 2, snake.head[1] + CELL_SIZE // 2,
+                             snake.color, count=14, speed=3.0, size=5, life=34)
+                    play_eat(1)
+            if ea or eb:
+                food = _vs_food(p1, p2)
+            if da or db:
+                play_sound("death")
+                for snake, dead in ((p1, da), (p2, db)):
+                    if dead:
+                        fx.burst(snake.head[0] + CELL_SIZE // 2, snake.head[1] + CELL_SIZE // 2,
+                                 (235, 70, 84), count=30, speed=4.5, size=6, life=44)
+
+        fx.update()
+        t = min(1.0, acc / VS_STEP_MS)
+        _vs_render(p1, p2, food, p1w, p2w, round_num, t)
+        draw_border(screen, WIDTH, HEIGHT, INK)
+        pygame.display.update()
+
+    winner = 0 if (not p1.alive and not p2.alive) else (1 if p1.alive else 2)
+    banner = {0: "DRAW!", 1: "GREEN WINS THE ROUND", 2: "ORANGE WINS THE ROUND"}[winner]
+    bcolor = {0: INK, 1: VS_P1, 2: VS_P2}[winner]
+    end = pygame.time.get_ticks() + 1300
+    while pygame.time.get_ticks() < end:
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                return "quit"
+        fx.update()
+        _vs_render(p1, p2, food, p1w, p2w, round_num, 1.0)
+        draw_text_center(screen, banner, HEIGHT // 2 - 30, font, bcolor)
+        draw_border(screen, WIDTH, HEIGHT, INK)
+        pygame.display.update()
+        clock.tick(60)
+    return winner
+
+
+def versus(wrap):
+    """2-player couch versus: first to VS_WINS_TARGET round wins takes the match."""
+    while True:                                   # rematch loop
+        p1w = p2w = 0
+        round_num = 0
+        fx.clear()
+        while max(p1w, p2w) < VS_WINS_TARGET:
+            round_num += 1
+            r = _versus_round(wrap, p1w, p2w, round_num)
+            if r == "quit":
+                return "quit"
+            if r == 1:
+                p1w += 1
+            elif r == 2:
+                p2w += 1
+
+        champ = 1 if p1w > p2w else 2
+        sel = 0
+        decided = None
+        while decided is None:
+            for e in pygame.event.get():
+                if e.type == pygame.QUIT:
+                    return "quit"
+                if e.type == pygame.KEYDOWN:
+                    if e.key in (pygame.K_UP, pygame.K_DOWN):
+                        sel = (sel + 1) % 2
+                    elif e.key == pygame.K_m:
+                        toggle_mute()
+                    elif e.key == pygame.K_RETURN:
+                        decided = "rematch" if sel == 0 else "menu"
+            draw_background(screen, WIDTH, HEIGHT, CELL_SIZE, HUD_HEIGHT, BG, GRID, HUD_BG, INK)
+            col = VS_P1 if champ == 1 else VS_P2
+            name = "GREEN" if champ == 1 else "ORANGE"
+            draw_text_center(screen, f"{name} WINS!", 190, big_font, col)
+            draw_text_center(screen, f"{p1w}  -  {p2w}", 280, big_font, INK)
+            for i, o in enumerate(["REMATCH", "MAIN MENU"]):
+                c = ACCENT if i == sel else INK
+                draw_text_center(screen, f"> {o} <" if i == sel else o, 400 + i * 46, font, c)
+            draw_border(screen, WIDTH, HEIGHT, INK)
+            pygame.display.update()
+            clock.tick(60)
+        if decided == "menu":
+            fade_out_current()
+            return "menu"
+        # rematch -> outer loop starts a fresh match
+
+
 def main():
     while True:
         choice = start_menu()
-        if choice is None:          # window closed at the menu
+        if choice is None:              # window closed at the menu
             break
-        result = game(*choice)
-        if result == "quit":        # window closed or QUIT chosen in-game
+        wrap, difficulty, mode, players = choice
+        result = versus(wrap) if players == 2 else game(wrap, difficulty, mode)
+        if result == "quit":            # window closed or QUIT chosen in-game
             break
         # result == "menu" -> loop back to the start menu
     pygame.quit()

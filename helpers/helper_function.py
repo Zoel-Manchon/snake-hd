@@ -6,7 +6,8 @@ import pygame
 ROT = {"RIGHT": 0, "UP": 90, "LEFT": 180, "DOWN": 270}
 
 # Single-image sprites vs. horizontal animation strips (square frames).
-STATIC_SPRITES = ("head", "body", "tail", "pu_slowmo", "pu_double", "pu_magnet", "pu_ghost")
+STATIC_SPRITES = ("head", "body", "tail", "pu_slowmo", "pu_double", "pu_magnet", "pu_ghost",
+                  "head_p2", "body_p2", "tail_p2")
 ANIMATED_SPRITES = ("food", "bonus", "mine")
 ANIM_MS = 130   # milliseconds each animation frame is shown
 
@@ -90,18 +91,30 @@ def draw_overlay(screen, color, alpha):
     screen.blit(overlay, (0, 0))
 
 
-def draw_hud(screen, score, high_score, enemies, font, big_font, dark_green):
+def draw_hud(screen, score, high_score, enemies, font, big_font, dark_green,
+             timer=None, timer_color=None, right_override=None, right_color=None):
     width = screen.get_width()
-    score_img = font.render(f"SCORE {score}", True, dark_green)
-    danger_img = font.render(f"DANGER {len(enemies)}", True, dark_green)
-    y = 28
-    screen.blit(score_img, (30, y))
-    draw_text_center(screen, f"BEST {high_score}", y, font, dark_green)
-    screen.blit(danger_img, (width - danger_img.get_width() - 30, y))
+    # Right slot: live enemy count, or an override label (e.g. ZEN).
+    if right_override is not None:
+        rimg = font.render(right_override, True, right_color or dark_green)
+    else:
+        rimg = font.render(f"DANGER {len(enemies)}", True, dark_green)
+    screen.blit(rimg, (width - rimg.get_width() - 30, 28))
+
+    if timer is None:
+        screen.blit(font.render(f"SCORE {score}", True, dark_green), (30, 28))
+        draw_text_center(screen, f"BEST {high_score}", 28, font, dark_green)
+    else:
+        # Time Attack: score + best stacked on the left, big clock centered.
+        screen.blit(font.render(f"SCORE {score}", True, dark_green), (30, 14))
+        screen.blit(font.render(f"BEST {high_score}", True, dark_green), (30, 44))
+        timg = big_font.render(timer, True, timer_color or dark_green)
+        screen.blit(timg, ((width - timg.get_width()) // 2, 18))
 
 
 def draw_game_over_panel(screen, score, high_score, font, big_font, hud_bg,
-                         dark_green, leaderboard=None, accent=None, selected=0):
+                         dark_green, leaderboard=None, accent=None, selected=0,
+                         board_title="LEADERBOARD", status=None):
     accent = accent or dark_green
     width, height = screen.get_width(), screen.get_height()
     panel_width, panel_height = 640, 520
@@ -117,14 +130,24 @@ def draw_game_over_panel(screen, score, high_score, font, big_font, hud_bg,
 
     pygame.draw.line(screen, accent, (panel_x + 40, panel_y + 178),
                      (panel_x + panel_width - 40, panel_y + 178), 2)
-    draw_text_center(screen, "LEADERBOARD", panel_y + 190, font, accent)
+    draw_text_center(screen, board_title, panel_y + 188, font, accent)
+
+    # Small online status dot/label (online = green, offline/connecting = grey).
+    if status:
+        labels = {"online": ("* ONLINE", accent),
+                  "offline": ("o OFFLINE", (120, 124, 150)),
+                  "loading": ("connecting...", (120, 124, 150))}
+        text, col = labels.get(status, (None, None))
+        if text:
+            img = font.render(text, True, col)
+            screen.blit(img, (panel_x + panel_width - 40 - img.get_width(), panel_y + 152))
 
     rows = (leaderboard or [])[:5]
     if rows:
         for i, (name, sc) in enumerate(rows):
             color = accent if sc == score else dark_green   # highlight this run
             img = font.render(f"{i + 1}. {sc:>5}  {name}", True, color)
-            screen.blit(img, (panel_x + 78, panel_y + 226 + i * 30))
+            screen.blit(img, (panel_x + 78, panel_y + 222 + i * 30))
     else:
         draw_text_center(screen, "- no scores yet -", panel_y + 240, font, dark_green)
 
@@ -363,3 +386,25 @@ def draw_wave_text(screen, text, center_x, base_y, font, color, phase, amp=10, s
         y = base_y + int(amp * math.sin(phase + i * 0.7))
         screen.blit(img, (x, y))
         x += widths[i] + spacing
+
+
+def draw_versus_snake(screen, positions, cell, color, dark, direction=(1, 0), alive=True):
+    """Draw a 2-player snake as glossy colored cells with eyes on the head."""
+    if not positions:
+        return
+    body_c = color if alive else dark
+    for i, p in enumerate(positions):
+        x, y = int(p[0]), int(p[1])
+        outer = pygame.Rect(x + 1, y + 1, cell - 2, cell - 2)
+        pygame.draw.rect(screen, dark, outer, border_radius=9)
+        pygame.draw.rect(screen, body_c, outer.inflate(-4, -4), border_radius=7)
+        if i == 0 and alive:                               # eyes, facing travel direction
+            dx, dy = direction
+            cx, cy = x + cell // 2, y + cell // 2
+            ex, ey = dx * cell * 0.16, dy * cell * 0.16
+            ox, oy = -dy * cell * 0.18, dx * cell * 0.18   # perpendicular offset
+            r = max(2, cell // 10)
+            for s in (1, -1):
+                pupil = (int(cx + ex + ox * s), int(cy + ey + oy * s))
+                pygame.draw.circle(screen, (245, 248, 255), pupil, r)
+                pygame.draw.circle(screen, (20, 22, 34), pupil, max(1, r - 1))
