@@ -118,3 +118,37 @@ BOSS_BURST_COUNT = 12       # projectiles per ring
 BOSS_BURST_INTERVAL = 6     # steps between radial bursts (enraged only)
 BOSS_BURST_CHARGE = 0.5     # seconds of telegraph before the ring fires
 BOSS_BURST_SPEED = 3.4      # ring projectile speed (px/frame; slower = readable)
+
+# --- Power-up combos: stacking two effects triggers a named synergy ---------
+COMBO_BONUS_SCORE = 150     # instant score for igniting any synergy
+POWERUP_COMBOS = {
+    frozenset(("ghost", "double")):  ("PHANTOM FEAST", (170, 220, 255)),
+    frozenset(("slowmo", "magnet")): ("TRACTOR BEAM",  (255, 190, 120)),
+    frozenset(("slowmo", "ghost")):  ("SPIRIT WALK",   (150, 230, 255)),
+    frozenset(("double", "magnet")): ("GOLD RUSH",     (255, 210, 90)),
+    frozenset(("slowmo", "double")): ("TIME HEIST",    (230, 160, 255)),
+    frozenset(("ghost", "magnet")):  ("VOID SIPHON",   (190, 140, 255)),
+}
+
+# --- Glow trail ---------------------------------------------------------------
+TRAIL_LENGTH = 14                # points in the fading ribbon behind the head
+TRAIL_COLOR = (110, 220, 130)    # normal-mode trail (fever overrides it)
+
+# Last Stand (boss at 1 HP): the ring becomes a rotating spiral stream.
+BOSS_SPIRAL_RATE_MS = 105   # ms between spiral emissions
+BOSS_SPIRAL_ARMS = 2        # simultaneous spiral arms
+BOSS_SPIRAL_STEP = 0.38     # radians the arm advances per emission
+BOSS_SPIRAL_SPEED = 3.0     # spiral projectile speed (px/frame)
+
+# --- Snake skins: (name, sprite suffix, trail color) -------------------------
+SNAKE_SKINS = [
+    ("EMERALD", "",       (110, 220, 130), ((95, 208, 104), (40, 110, 60), (180, 245, 168))),
+    ("CRIMSON", "_red",   (245, 110, 110), ((214, 62, 74), (122, 22, 38), (255, 152, 142))),
+    ("SHADOW",  "_black", (150, 160, 195), ((60, 64, 82), (20, 22, 32), (148, 154, 186))),
+    ("AZURE",   "_blue",  (130, 200, 255), ((72, 152, 235), (26, 72, 142), (162, 216, 255))),
+    ("GOLDEN",  "_gold",  (255, 216, 120), ((252, 190, 66), (172, 112, 22), (255, 242, 176))),
+]
+
+# Functional synergy effects.
+TIME_HEIST_BONUS_MS = 10000   # TIME HEIST: seconds stolen back in Time Attack
+GOLD_RUSH_BONUS_MULT = 3      # GOLD RUSH: golden-apple spawn chance multiplier

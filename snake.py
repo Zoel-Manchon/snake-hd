@@ -30,6 +30,7 @@ from helpers.helper_function import (
     draw_boss,
     draw_boss_hp,
     draw_achievement_card,
+    draw_trail,
 )
 
 from helpers.storage import load_high_score, save_high_score
@@ -65,7 +66,39 @@ small_font = pygame.font.Font("assets/PressStart2P.ttf", 14)
 sprites = load_sprites(CELL_SIZE)
 # Player-2 sprite set for versus: same art, orange recolour for head/body/tail.
 sprites_p2 = {**sprites,
-              "head": sprites["head_p2"], "body": sprites["body_p2"], "tail": sprites["tail_p2"]}
+              "head": sprites["head_p2"], "body": sprites["body_p2"],
+              "tail": sprites["tail_p2"], "corner": sprites["corner_p2"]}
+
+vs_p1_sprites = None   # set by versus() to the chosen P1 skin set
+
+_SKIN_PATH = "skin.json"
+
+def load_skin():
+    try:
+        import json
+        with open(_SKIN_PATH) as f:
+            i = int(json.load(f))
+            return i if 0 <= i < len(SNAKE_SKINS) else 0
+    except (OSError, ValueError):
+        return 0
+
+def save_skin(i):
+    try:
+        import json
+        with open(_SKIN_PATH, "w") as f:
+            json.dump(int(i), f)
+    except OSError:
+        pass
+
+
+# One sprite set per selectable skin (suffix "" is the base emerald art).
+sprites["palette"] = SNAKE_SKINS[0][3]
+sprites_p2["palette"] = ((240, 150, 70), (150, 80, 28), (255, 214, 156))
+SKIN_SPRITES = [
+    {**sprites, "palette": pal,
+     **{part: sprites[f"{part}{suf}"] for part in ("head", "body", "tail", "corner")}}
+    for _, suf, _tc, pal in SNAKE_SKINS
+]
 
 high_score = load_high_score()
 
@@ -173,9 +206,9 @@ def achievements_screen():
     check, locked ones dimmed with a padlock. ESC / A / ENTER returns to menu.
     Returns "quit" if the window was closed."""
     items = achievements.all_list()          # (id, name, desc, unlocked)
-    margin_x, gap_x, gap_y = 60, 40, 15
+    margin_x, gap_x, gap_y = 60, 40, 12
     card_w = (WIDTH - 2 * margin_x - gap_x) // 2
-    card_h, y0 = 100, 150
+    card_h, y0 = 88, 148
     shown = False
 
     while True:
@@ -217,9 +250,11 @@ def start_menu():
     gm_idx = 0
     players = [("1 PLAYER", 1), ("2 PLAYERS", 2)]
     pl_idx = 0
-    row = 0  # 0 = mode, 1 = difficulty, 2 = game mode, 3 = players
+    skin_idx = load_skin()
+    row = 0  # 0 = mode, 1 = difficulty, 2 = game mode, 3 = players, 4 = skin
 
     demo = DemoSnake()
+    demo2 = DemoSnake()
     phase = 0.0
     faded_in = False
     online.fetch_board_async(5)   # pull the global board for display (non-blocking)
@@ -228,22 +263,38 @@ def start_menu():
         dt = clock.tick(60)
         phase += dt / 1000.0
         demo.update(dt)
+        demo2.update(dt)
 
-        draw_background(screen, WIDTH, HEIGHT, CELL_SIZE, HUD_HEIGHT, BG, GRID, HUD_BG, INK)
+        # Starfield + nebula backdrop lifts the menu out of the plain board.
+        draw_background(screen, WIDTH, HEIGHT, CELL_SIZE, HUD_HEIGHT, BG, GRID, HUD_BG, INK,
+                        "THE VOID")
 
-        # The menu is alive: a self-driving snake chases a roaming apple.
+        # The menu is alive: two rival snakes chase their own roaming apples.
         draw_food(screen, demo.target, CELL_SIZE, sprites)
+        draw_food(screen, demo2.target, CELL_SIZE, sprites)
         draw_snake(screen, demo.cells, CELL_SIZE, sprites, demo.dir_name, demo.positions())
+        draw_snake(screen, demo2.cells, CELL_SIZE, SKIN_SPRITES[1], demo2.dir_name, demo2.positions())
 
         # Dim panel so the text stays readable over the moving snake.
-        panel = pygame.Surface((780, 372), pygame.SRCALPHA)
+        panel = pygame.Surface((780, 412), pygame.SRCALPHA)
         panel.fill((10, 12, 22, 185))
         pygame.draw.rect(panel, (*ACCENT, 70), panel.get_rect(), 2, border_radius=14)
         screen.blit(panel, ((WIDTH - 780) // 2, 244))
 
-        # Animated logo: a travelling wave + a gentle green shimmer.
-        title_color = lerp_color(ACCENT, (170, 245, 180), 0.5 + 0.5 * math.sin(phase * 2.2))
+        # Animated logo: layered wave (shadow + glow pass + bright pass).
+        title_color = lerp_color(ACCENT, (190, 255, 200), 0.5 + 0.5 * math.sin(phase * 2.2))
+        draw_wave_text(screen, "SNAKE", WIDTH // 2 + 4, 144, big_font, (12, 22, 16), phase * 3.5, amp=12)
+        draw_wave_text(screen, "SNAKE", WIDTH // 2, 140, big_font, (28, 92, 46), phase * 3.5 + 0.12, amp=12)
         draw_wave_text(screen, "SNAKE", WIDTH // 2, 140, big_font, title_color, phase * 3.5, amp=12)
+        tag = small_font.render("H D   E D I T I O N", True, (255, 216, 120))
+        tag.set_alpha(int(170 + 85 * math.sin(phase * 2.6)))
+        screen.blit(tag, ((WIDTH - tag.get_width()) // 2, 206))
+        uy = 232
+        pygame.draw.line(screen, (28, 92, 46), (WIDTH // 2 - 170, uy), (WIDTH // 2 + 170, uy), 3)
+        sx = WIDTH // 2 + int(math.sin(phase * 1.7) * 125)
+        pygame.draw.line(screen, (190, 255, 200), (sx - 45, uy), (sx + 45, uy), 3)
+        credit = small_font.render("SNAKE HD v2.0  ·  BY ZOEL", True, (120, 124, 150))
+        screen.blit(credit, (WIDTH - credit.get_width() - 30, HEIGHT - 34))
 
         # Global leaderboard (top-left) when the server is reachable.
         board = online.BOARD
@@ -263,22 +314,49 @@ def start_menu():
         aimg = small_font.render(ach, True, ACCENT)
         screen.blit(aimg, (WIDTH - aimg.get_width() - 36, 104))
 
+        row_ys = (292, 334, 376, 418, 460)
+        sel_y = row_ys[row]
+        bar = pygame.Surface((660, 40), pygame.SRCALPHA)
+        pygame.draw.rect(bar, (*ACCENT, 28), bar.get_rect(), border_radius=10)
+        screen.blit(bar, ((WIDTH - 660) // 2, sel_y - 8))
+        mx = (WIDTH - 660) // 2 - 28 + int(4 * math.sin(phase * 5.0))
+        pygame.draw.polygon(screen, ACCENT,
+                            [(mx, sel_y), (mx, sel_y + 22), (mx + 15, sel_y + 11)])
+
         mode_color = ACCENT if row == 0 else INK
         diff_color = ACCENT if row == 1 else INK
         gm_color = ACCENT if row == 2 else INK
         play_color = ACCENT if row == 3 else INK
+        skin_color = ACCENT if row == 4 else INK
         draw_text_center(screen, f"MODE:   < {modes[mode_idx][0]} >", 292, font, mode_color)
         draw_text_center(screen, f"DIFFICULTY:   < {DIFFICULTY_ORDER[diff_idx]} >", 334, font, diff_color)
         draw_text_center(screen, f"GAME MODE:   < {GAME_MODES[gm_idx]} >", 376, font, gm_color)
         draw_text_center(screen, f"PLAYERS:   < {players[pl_idx][0]} >", 418, font, play_color)
+        skin_locked = (SNAKE_SKINS[skin_idx][0] == "GOLDEN"
+                       and not achievements.is_unlocked("void_slayer"))
+        skin_label = f"SNAKE:   < {SNAKE_SKINS[skin_idx][0]} >"
+        if skin_locked:
+            draw_text_center(screen, skin_label, 460, font, (110, 114, 140))
+            draw_text_center(screen, "DEFEAT THE VOID WARDEN TO UNLOCK", 486, small_font, (210, 170, 90))
+        else:
+            draw_text_center(screen, skin_label, 460, font,
+                             SNAKE_SKINS[skin_idx][2] if row == 4 else skin_color)
+        hb = pygame.transform.smoothscale(sprites[f"head{SNAKE_SKINS[skin_idx][1]}"], (72, 72))
+        gl = pygame.Surface((110, 110), pygame.SRCALPHA)
+        pygame.draw.circle(gl, (*SNAKE_SKINS[skin_idx][2], 26 if skin_locked else 60), (55, 55), 52)
+        px, py = (WIDTH + 660) // 2 + 26, 444
+        screen.blit(gl, (px - 19, py - 19))
+        if skin_locked:
+            hb.set_alpha(80)
+        screen.blit(hb, (px, py))
 
         if players[pl_idx][1] == 2:
-            draw_text_center(screen, "P1 ARROWS    P2 WASD", 456, small_font, (150, 200, 255))
+            draw_text_center(screen, "P1 ARROWS    P2 WASD", 496, small_font, (150, 200, 255))
 
-        draw_text_center(screen, "UP/DOWN SELECT     LEFT/RIGHT CHANGE", 494, small_font, INK)
-        draw_text_center(screen, "ENTER START     P PAUSE     ESC END RUN", 522, small_font, INK)
+        draw_text_center(screen, "UP/DOWN SELECT     LEFT/RIGHT CHANGE", 524, small_font, INK)
+        draw_text_center(screen, "ENTER START     P PAUSE     ESC END RUN", 552, small_font, INK)
         sound_label = "M: SOUND OFF" if is_muted() else "M: SOUND ON"
-        draw_text_center(screen, sound_label, 550, small_font, INK)
+        draw_text_center(screen, sound_label, 580, small_font, INK)
 
         draw_border(screen, WIDTH, HEIGHT, INK)
         if not faded_in:
@@ -293,9 +371,9 @@ def start_menu():
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_UP:
-                    row = (row - 1) % 4
+                    row = (row - 1) % 5
                 elif event.key == pygame.K_DOWN:
-                    row = (row + 1) % 4
+                    row = (row + 1) % 5
                 elif event.key in (pygame.K_LEFT, pygame.K_RIGHT):
                     step = 1 if event.key == pygame.K_RIGHT else -1
                     if row == 0:
@@ -304,8 +382,10 @@ def start_menu():
                         diff_idx = (diff_idx + step) % len(DIFFICULTY_ORDER)
                     elif row == 2:
                         gm_idx = (gm_idx + step) % len(GAME_MODES)
-                    else:
+                    elif row == 3:
                         pl_idx = (pl_idx + step) % len(players)
+                    else:
+                        skin_idx = (skin_idx + step) % len(SNAKE_SKINS)
                 elif event.key == pygame.K_m:
                     toggle_mute()
                 elif event.key == pygame.K_a:
@@ -315,11 +395,15 @@ def start_menu():
                     faded_in = False        # fade the menu back in on return
                 elif event.key == pygame.K_RETURN:
                     fade_out_current()
+                    chosen = 0 if skin_locked else skin_idx
+                    save_skin(chosen)
                     return (modes[mode_idx][1], DIFFICULTY_ORDER[diff_idx],
-                            GAME_MODES[gm_idx], players[pl_idx][1])
+                            GAME_MODES[gm_idx], players[pl_idx][1], chosen)
 
 
-def game(wrap, difficulty, mode="CLASSIC"):
+def game(wrap, difficulty, mode="CLASSIC", skin=0):
+    snek = SKIN_SPRITES[skin]
+    trail_color = SNAKE_SKINS[skin][2]
     global high_score
 
     daily_mode = mode == "DAILY"         # date-seeded run, own best/streak board
@@ -349,14 +433,38 @@ def game(wrap, difficulty, mode="CLASSIC"):
         direction = "RIGHT"
         next_direction = "RIGHT"
 
-        # Daily Challenge: seed by date so the run is reproducible; otherwise
-        # reseed from OS entropy so a prior daily run doesn't fix later runs.
+        # Daily Challenge: every player gets the IDENTICAL pre-generated spawn
+        # sequence (food/bonus/powerup positions + powerup kinds). Occupied
+        # candidates are skipped deterministically, so boards match across
+        # players until paths force different skips.
         if daily_mode:
-            random.seed(daily.today_seed())
+            _dr = random.Random(daily.today_seed())
+            _cols = WIDTH // CELL_SIZE
+            _rows = (HEIGHT - HUD_HEIGHT) // CELL_SIZE
+            _dseq = [[_dr.randrange(_cols) * CELL_SIZE,
+                      HUD_HEIGHT + _dr.randrange(_rows) * CELL_SIZE] for _ in range(800)]
+            _dkinds = [_dr.choice(POWERUP_KINDS) for _ in range(80)]
+            _di = {"f": 0, "k": 0}
+
+            def dnext(snake_, food_, enemies_):
+                occ = {tuple(c) for c in snake_} | {tuple(e.pos) for e in enemies_}
+                if food_ is not None:
+                    occ.add(tuple(food_))
+                for _ in range(len(_dseq)):
+                    cand = _dseq[_di["f"] % len(_dseq)]
+                    _di["f"] += 1
+                    if tuple(cand) not in occ:
+                        return list(cand)
+                return random_safe_position(snake_, food_, enemies_)
+
+            def dkind():
+                k = _dkinds[_di["k"] % len(_dkinds)]
+                _di["k"] += 1
+                return k
         else:
             random.seed()
 
-        food = random_position()
+        food = dnext(snake, None, []) if daily_mode else random_position()
         bonus = None          # golden apple position, or None when inactive
         bonus_timer = 0       # steps remaining before it vanishes
         combo = 1             # current score multiplier
@@ -390,6 +498,10 @@ def game(wrap, difficulty, mode="CLASSIC"):
         boss_done = False        # True once defeated this run (no re-trigger)
         boss_banner = 0          # frames the boss banner stays up
         boss_banner_text = ""
+        combo_banner = 0         # frames the power-up synergy banner stays up
+        combo_text = ""
+        combo_color = ACCENT
+        trail = []               # recent head render points for the glow ribbon
 
         def kill():
             """Run the full death sequence (used by both normal deaths and a
@@ -410,12 +522,12 @@ def game(wrap, difficulty, mode="CLASSIC"):
             fx.burst(hx, hy, (235, 70, 84), count=34, speed=4.5, size=6, life=46)
             for alpha in (200, 150, 105, 65, 30, 0):
                 buf = pygame.Surface((WIDTH, HEIGHT))
-                draw_background(buf, WIDTH, HEIGHT, CELL_SIZE, HUD_HEIGHT, biome_bg, biome_grid, HUD_BG, INK)
+                draw_background(buf, WIDTH, HEIGHT, CELL_SIZE, HUD_HEIGHT, biome_bg, biome_grid, HUD_BG, INK, BIOMES[biome_idx]["name"])
                 draw_food(buf, food, CELL_SIZE, sprites)
                 if bonus is not None:
                     draw_bonus(buf, bonus, CELL_SIZE, sprites)
                 draw_enemies(buf, enemies, CELL_SIZE, sprites)
-                draw_snake(buf, snake, CELL_SIZE, sprites, direction)
+                draw_snake(buf, snake, CELL_SIZE, snek, direction)
                 if boss_active and boss is not None:
                     draw_boss(buf, boss, CELL_SIZE)
                 fx.update()
@@ -532,10 +644,12 @@ def game(wrap, difficulty, mode="CLASSIC"):
                         spawn_enemy(enemies, snake, food, biome_weights)
                         enemy_timer = 0
 
-                    # Drifters slide, blinkers phase on/off.
-                    occupied = {tuple(e.pos) for e in enemies}
-                    for e in enemies:
-                        e.update(snake, food, occupied)
+                    # Drifters slide, blinkers phase on/off. SPIRIT WALK
+                    # (slowmo+ghost) freezes the whole world while it lasts.
+                    if not ("slowmo" in effects and "ghost" in effects):
+                        occupied = {tuple(e.pos) for e in enemies}
+                        for e in enemies:
+                            e.update(snake, food, occupied)
 
                     # The Warden aims at the head and fires on its cooldown.
                     if boss_active and boss is not None:
@@ -555,8 +669,9 @@ def game(wrap, difficulty, mode="CLASSIC"):
                     if powerup is None:
                         spawn_cooldown -= 1
                         if spawn_cooldown <= 0:
-                            powerup = random_safe_position(snake, food, enemies)
-                            powerup_kind = random.choice(POWERUP_KINDS)
+                            powerup = (dnext(snake, food, enemies) if daily_mode
+                                       else random_safe_position(snake, food, enemies))
+                            powerup_kind = dkind() if daily_mode else random.choice(POWERUP_KINDS)
                             powerup_life = POWERUP_LIFETIME
                     else:
                         powerup_life -= 1
@@ -570,8 +685,10 @@ def game(wrap, difficulty, mode="CLASSIC"):
                         if effects[name] <= 0:
                             del effects[name]
 
-                    # Magnet: nudge the apple one cell toward the head (every other step).
-                    if "magnet" in effects and effects["magnet"] % 2 == 0:
+                    # Magnet: nudge the apple one cell toward the head (every other
+                    # step; TRACTOR BEAM synergy with slowmo pulls every step).
+                    if "magnet" in effects and (effects["magnet"] % 2 == 0
+                                                or "slowmo" in effects):
                         hx, hy = snake[0]
                         food_x, food_y = food
                         if abs(hx - food_x) >= abs(hy - food_y) and hx != food_x:
@@ -624,6 +741,8 @@ def game(wrap, difficulty, mode="CLASSIC"):
                             if fever:
                                 fever_timer = FEVER_DURATION   # bonus keeps the fever alive
                             gained = BONUS_POINTS * combo * mult * (FEVER_MULT if fever else 1)
+                            if "ghost" in effects and "double" in effects:
+                                gained += 1   # PHANTOM FEAST synergy
                             score += gained
                             play_sound("bonus")
                             bonus = None
@@ -645,6 +764,8 @@ def game(wrap, difficulty, mode="CLASSIC"):
                                     award("on_fire")
                                 fever_timer = FEVER_DURATION
                             gained = combo * mult * (FEVER_MULT if fever else 1)
+                            if "ghost" in effects and "double" in effects:
+                                gained += 1   # PHANTOM FEAST synergy
                             score += gained
                             play_eat(combo)
                             combo_timer = COMBO_WINDOW
@@ -659,21 +780,31 @@ def game(wrap, difficulty, mode="CLASSIC"):
                             save_high_score(high_score)
 
                         if ate_food:
-                            food = random_safe_position(snake, food, enemies)
+                            food = (dnext(snake, None, enemies) if daily_mode
+                                    else random_safe_position(snake, food, enemies))
                             # Keep the apple off the Warden's body so it stays reachable.
                             if boss_active and boss is not None:
                                 guard = 0
                                 while tuple(food) in boss.solid_cells() and guard < 40:
-                                    food = random_safe_position(snake, food, enemies)
+                                    food = (dnext(snake, None, enemies) if daily_mode
+                                            else random_safe_position(snake, food, enemies))
                                     guard += 1
-                            if bonus is None and random.random() < BONUS_CHANCE:
-                                bonus = random_safe_position(snake, food, enemies)
+                            gr = GOLD_RUSH_BONUS_MULT if ("double" in effects and "magnet" in effects) else 1
+                            if bonus is None and random.random() < BONUS_CHANCE * gr:
+                                bonus = (dnext(snake, food, enemies) if daily_mode
+                                         else random_safe_position(snake, food, enemies))
                                 bonus_timer = BONUS_LIFETIME
 
                             # Eating an apple during the fight drains the Warden.
                             if boss_active and boss is not None:
                                 bx, by = boss.center_px()
-                                if boss.hit():        # defeated
+                                dmg = 2 if ("ghost" in effects and "magnet" in effects) else 1
+                                killed = False
+                                for _ in range(dmg):
+                                    if boss.hit():
+                                        killed = True
+                                        break
+                                if killed:            # defeated
                                     score += BOSS_BONUS
                                     fx.burst(bx, by, (255, 120, 200), count=60, speed=6.0, size=8, life=60)
                                     fx.burst(bx, by, (255, 255, 255), count=30, speed=4.0, size=6, life=48)
@@ -694,6 +825,11 @@ def game(wrap, difficulty, mode="CLASSIC"):
                                     fx.burst(bx, by, (255, 120, 200), count=18, speed=4.0, size=6, life=34)
                                     shake_timer, shake_mag = 7, 6.5
                                     play_sound("powerup")
+                                    if boss.last_stand:   # 1 HP: spiral phase begins
+                                        boss_banner = 170
+                                        boss_banner_text = "LAST STAND"
+                                        shake_timer, shake_mag = 14, 9.0
+                                        play_sound("fever")
                     else:
                         snake.pop()
 
@@ -706,6 +842,31 @@ def game(wrap, difficulty, mode="CLASSIC"):
                         gy = new_head[1] + CELL_SIZE // 2
                         fx.burst(gx, gy, pc, count=26, speed=3.5, size=6, life=42)
                         popups.add(gx, gy - 6, POWERUP_EFFECTS[powerup_kind]["label"], pc)
+
+                        # Synergy: this pickup stacking with an already-active
+                        # effect ignites a named combo for bonus score.
+                        for other in effects:
+                            if other == powerup_kind:
+                                continue
+                            pair = frozenset((powerup_kind, other))
+                            if pair in POWERUP_COMBOS:
+                                cname, combo_color = POWERUP_COMBOS[pair]
+                                combo_text = f"{cname}  +{COMBO_BONUS_SCORE}"
+                                if cname == "TIME HEIST" and time_attack:
+                                    time_left += TIME_HEIST_BONUS_MS
+                                    popups.add(gx, gy - 30, "+10s", (230, 160, 255))
+                                combo_banner = 150
+                                score += COMBO_BONUS_SCORE
+                                fx.burst(gx, gy, combo_color, count=44, speed=5.0, size=7, life=52)
+                                fx.burst(gx, gy, (255, 255, 255), count=18, speed=3.0, size=5, life=40)
+                                shake_timer, shake_mag = 10, 7.0
+                                play_sound("fever")
+                                award("synergy")
+                                if score > high_score:
+                                    high_score = score
+                                    save_high_score(high_score)
+                                break
+
                         powerup = None
                         spawn_cooldown = POWERUP_COOLDOWN
 
@@ -805,7 +966,7 @@ def game(wrap, difficulty, mode="CLASSIC"):
                 fever_color = lerp_color(FEVER_COLORS[0], FEVER_COLORS[1], sweep)
 
             # ---- render (every frame) ----
-            draw_background(screen, WIDTH, HEIGHT, CELL_SIZE, HUD_HEIGHT, biome_bg, biome_grid, HUD_BG, INK)
+            draw_background(screen, WIDTH, HEIGHT, CELL_SIZE, HUD_HEIGHT, biome_bg, biome_grid, HUD_BG, INK, BIOMES[biome_idx]["name"])
             if fever:
                 draw_fever_tint(screen, WIDTH, HEIGHT, HUD_HEIGHT, fever_color, 26 + 30 * pulse)
             draw_food(screen, food, CELL_SIZE, sprites)
@@ -820,7 +981,16 @@ def game(wrap, difficulty, mode="CLASSIC"):
             if fever:
                 draw_fever_glow(screen, render_positions if render_positions else snake,
                                 CELL_SIZE, fever_color, 0.35 + 0.45 * pulse)
-            draw_snake(screen, snake, CELL_SIZE, sprites, direction, render_positions)
+            if not game_over and not paused:
+                hx = render_positions[0][0] + CELL_SIZE / 2
+                hy = render_positions[0][1] + CELL_SIZE / 2
+                if not trail or (abs(trail[-1][0] - hx) + abs(trail[-1][1] - hy)) > 3:
+                    trail.append((hx, hy))
+                if len(trail) > TRAIL_LENGTH:
+                    del trail[: len(trail) - TRAIL_LENGTH]
+            draw_trail(screen, trail, CELL_SIZE,
+                       FEVER_COLORS[0] if fever else trail_color)
+            draw_snake(screen, snake, CELL_SIZE, snek, direction, render_positions)
             fx.draw(screen)
             if boss_active and boss is not None and not game_over:
                 draw_boss(screen, boss, CELL_SIZE)
@@ -859,7 +1029,20 @@ def game(wrap, difficulty, mode="CLASSIC"):
                     draw_game_over_panel(screen, score, high_score, font, big_font, HUD_BG, INK,
                                          board, ACCENT, go_sel, board_title, ostate["status"])
             elif paused:
-                draw_text_center(screen, "PAUSED", 340, big_font, ACCENT)
+                draw_overlay(screen, (8, 10, 18), 150)
+                pp = pygame.Surface((560, 300), pygame.SRCALPHA)
+                pp.fill((10, 12, 22, 210))
+                pygame.draw.rect(pp, (*ACCENT, 90), pp.get_rect(), 2, border_radius=14)
+                screen.blit(pp, ((WIDTH - 560) // 2, 250))
+                draw_wave_text(screen, "PAUSED", WIDTH // 2, 292, big_font, ACCENT,
+                               pygame.time.get_ticks() / 280.0, amp=6)
+                stats = [f"SCORE {score}", f"BEST {high_score}",
+                         f"{mode}  ·  {BIOMES[biome_idx]['name']}",
+                         f"LENGTH {len(snake)}"]
+                for i, ln in enumerate(stats):
+                    draw_text_center(screen, ln, 376 + i * 30, small_font, INK)
+                draw_text_center(screen, "P RESUME     ESC END RUN", 502, small_font,
+                                 (150, 200, 255))
                 draw_text_center(screen, "Press P to resume", 430, font, INK)
             else:
                 if fever:
@@ -891,6 +1074,14 @@ def game(wrap, difficulty, mode="CLASSIC"):
                 img = big_font.render(boss_banner_text, True, (255, 110, 200))
                 img.set_alpha(a)
                 screen.blit(img, ((WIDTH - img.get_width()) // 2, HEIGHT // 2 - 28))
+
+            if combo_banner > 0 and not game_over:
+                if not paused:
+                    combo_banner -= 1
+                a = 255 if combo_banner > 40 else int(255 * combo_banner / 40)
+                img = font.render(combo_text, True, combo_color)
+                img.set_alpha(a)
+                screen.blit(img, ((WIDTH - img.get_width()) // 2, HUD_HEIGHT + 76))
 
             # Achievement toasts (stacked at the bottom, newest lowest).
             ty = HEIGHT - 70
@@ -1026,7 +1217,7 @@ def _vs_setup(wrap):
 def _vs_render(p1, p2, food, p1w, p2w, round_num, t):
     draw_background(screen, WIDTH, HEIGHT, CELL_SIZE, HUD_HEIGHT, BG, GRID, HUD_BG, INK)
     draw_food(screen, food, CELL_SIZE, sprites)
-    draw_snake(screen, p1.cells, CELL_SIZE, sprites, p1.dir_name, p1.positions(t))
+    draw_snake(screen, p1.cells, CELL_SIZE, vs_p1_sprites, p1.dir_name, p1.positions(t))
     draw_snake(screen, p2.cells, CELL_SIZE, sprites_p2, p2.dir_name, p2.positions(t))
     fx.draw(screen)
     s1 = font.render(f"P1  {p1w}", True, VS_P1)
@@ -1115,7 +1306,9 @@ def _versus_round(wrap, p1w, p2w, round_num):
     return winner
 
 
-def versus(wrap):
+def versus(wrap, skin=0):
+    global vs_p1_sprites
+    vs_p1_sprites = SKIN_SPRITES[skin]
     """2-player couch versus: first to VS_WINS_TARGET round wins takes the match."""
     while True:                                   # rematch loop
         p1w = p2w = 0
@@ -1167,8 +1360,8 @@ def main():
         choice = start_menu()
         if choice is None:              # window closed at the menu
             break
-        wrap, difficulty, mode, players = choice
-        result = versus(wrap) if players == 2 else game(wrap, difficulty, mode)
+        wrap, difficulty, mode, players, skin = choice
+        result = versus(wrap, skin) if players == 2 else game(wrap, difficulty, mode, skin)
         if result == "quit":            # window closed or QUIT chosen in-game
             break
         # result == "menu" -> loop back to the start menu

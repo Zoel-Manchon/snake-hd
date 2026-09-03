@@ -16,6 +16,7 @@ from game.settings import (
     CELL_SIZE, WIDTH, HEIGHT, HUD_HEIGHT,
     BOSS_MAX_HP, BOSS_FIRE_INTERVAL, BOSS_PROJ_SPEED, BOSS_ENRAGE_HP,
     BOSS_BURST_COUNT, BOSS_BURST_INTERVAL, BOSS_BURST_CHARGE, BOSS_BURST_SPEED,
+    BOSS_SPIRAL_RATE_MS, BOSS_SPIRAL_ARMS, BOSS_SPIRAL_STEP, BOSS_SPIRAL_SPEED,
 )
 
 
@@ -35,6 +36,12 @@ class Boss:
         self.phase = 0.0             # advances each frame -> pulsing visuals
         self.flash = 0.0             # seconds of white flinch after a hit
         self.look = (0.0, 1.0)       # pupil aim direction (unit vector)
+        self.spiral_angle = 0.0      # current spiral arm angle (Last Stand)
+        self.spiral_timer = 0.0      # ms until the next spiral emission
+
+    @property
+    def last_stand(self):
+        return self.hp == 1
 
     @property
     def enraged(self):
@@ -78,7 +85,8 @@ class Boss:
             self._fire(target)
             self.fire_cd = max(2, BOSS_FIRE_INTERVAL // 2) if self.enraged else BOSS_FIRE_INTERVAL
         # Enraged: periodically wind up a full radial burst (released in advance()).
-        if self.enraged:
+        # In Last Stand the spiral replaces the ring, so no new charges start.
+        if self.enraged and not self.last_stand:
             self.burst_cd -= 1
             if self.burst_cd <= 0 and self.charge <= 0:
                 self.charge = BOSS_BURST_CHARGE
@@ -119,6 +127,18 @@ class Boss:
                 self.charge = 0.0
                 self._radial_burst()
                 released = True
+        # Last Stand: a continuous rotating spiral stream.
+        if self.last_stand:
+            cxp, cyp = self.center_px()
+            self.spiral_timer -= dt_ms
+            while self.spiral_timer <= 0:
+                self.spiral_timer += BOSS_SPIRAL_RATE_MS
+                for k in range(BOSS_SPIRAL_ARMS):
+                    ang = self.spiral_angle + 2 * math.pi * k / BOSS_SPIRAL_ARMS
+                    self.projectiles.append([float(cxp), float(cyp),
+                                             math.cos(ang) * BOSS_SPIRAL_SPEED,
+                                             math.sin(ang) * BOSS_SPIRAL_SPEED])
+                self.spiral_angle += BOSS_SPIRAL_STEP
         alive = []
         for p in self.projectiles:
             p[0] += p[2]

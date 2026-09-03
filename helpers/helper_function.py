@@ -6,9 +6,13 @@ import pygame
 ROT = {"RIGHT": 0, "UP": 90, "LEFT": 180, "DOWN": 270}
 
 # Single-image sprites vs. horizontal animation strips (square frames).
-STATIC_SPRITES = ("head", "body", "tail", "pu_slowmo", "pu_double", "pu_magnet", "pu_ghost",
-                  "head_p2", "body_p2", "tail_p2")
-ANIMATED_SPRITES = ("food", "bonus", "mine")
+STATIC_SPRITES = ("head", "body", "tail", "corner", "pu_slowmo", "pu_double", "pu_magnet", "pu_ghost",
+                  "head_p2", "body_p2", "tail_p2", "corner_p2",
+                  "head_red", "body_red", "tail_red", "corner_red",
+                  "head_black", "body_black", "tail_black", "corner_black",
+                  "head_blue", "body_blue", "tail_blue", "corner_blue",
+                  "head_gold", "body_gold", "tail_gold", "corner_gold")
+ANIMATED_SPRITES = ("food", "bonus", "mine", "drifter", "blinker", "chaser")
 ANIM_MS = 130   # milliseconds each animation frame is shown
 
 
@@ -52,15 +56,84 @@ _BG_CACHE = None
 _BG_KEY = None
 
 
-def draw_background(screen, width, height, cell_size, hud_height, nokia_bg, nokia_grid, hud_bg, dark_green):
+def _paint_biome(surf, biome, w, h, hud):
+    """Subtle, deterministic scenery per biome, painted under the grid lines."""
+    import random as _r
+    rng = _r.Random(biome)
+
+    def R(lo, hi):
+        return rng.randint(lo, hi) if hi >= lo else lo
+
+    d = pygame.draw
+    lay = pygame.Surface((w, h), pygame.SRCALPHA)
+
+    if biome == "GARDEN":
+        for _ in range(26):
+            x, y = R(8, w - 8), R(hud + 10, h - 8)
+            c = (120, 200, 120, 40)
+            for k in (-3, 0, 3):
+                d.line(lay, c, (x + k, y), (x + k * 1.6, y - R(5, 9)), 1)
+        for _ in range(10):
+            x, y = R(10, w - 10), R(hud + 12, h - 10)
+            col = rng.choice([(240, 150, 170, 55), (240, 210, 120, 55)])
+            for ang in range(0, 360, 90):
+                a = math.radians(ang)
+                d.circle(lay, col, (int(x + math.cos(a) * 3), int(y + math.sin(a) * 3)), 2)
+    elif biome == "EMBER CAVE":
+        for _ in range(7):
+            x, y = R(0, w), R(hud + 20, h)
+            rw, rh = R(60, 150), R(30, 70)
+            d.ellipse(lay, (0, 0, 0, 26), (x - rw, y - rh, rw * 2, rh * 2))
+        for _ in range(34):
+            x, y = R(6, w - 6), R(hud + 10, h - 6)
+            col = rng.choice([(255, 140, 60), (255, 90, 50), (255, 190, 90)])
+            d.circle(lay, (*col, R(35, 75)), (x, y), R(1, 2))
+    elif biome == "DEEP SEA":
+        for _ in range(3):
+            x = R(0, w)
+            pts = [(x, hud), (x + R(120, 240), h)]
+            d.line(lay, (150, 200, 235, 14), pts[0], pts[1], R(26, 44))
+        for _ in range(26):
+            x, y = R(8, w - 8), R(hud + 10, h - 8)
+            d.circle(lay, (140, 210, 235, R(28, 60)), (x, y), R(2, 4), 1)
+    elif biome == "TOXIC MARSH":
+        for _ in range(12):
+            x, y = R(10, w - 10), R(hud + 30, h - 6)
+            bend = rng.choice((-1, 1)) * R(4, 9)
+            hgt = R(12, 22)
+            d.arc(lay, (120, 190, 90, 46), (x - 8, y - hgt, 16 + bend, hgt * 2),
+                  math.pi * 1.5, math.pi * 2.2, 2)
+        for _ in range(30):
+            x, y = R(6, w - 6), R(hud + 10, h - 6)
+            d.circle(lay, (160, 230, 110, R(26, 55)), (x, y), R(1, 2))
+    elif biome == "THE VOID":
+        for _ in range(2):
+            x, y = R(80, w - 80), R(hud + 80, h - 80)
+            for rr, a in ((70, 14), (46, 18), (26, 22)):
+                d.circle(lay, (150, 90, 210, a), (x, y), rr)
+        for _ in range(60):
+            x, y = R(4, w - 4), R(hud + 6, h - 4)
+            col = rng.choice([(235, 235, 255), (190, 150, 240), (140, 170, 255)])
+            d.circle(lay, (*col, R(50, 130)), (x, y), rng.choice((1, 1, 2)))
+        for _ in range(5):
+            x, y = R(20, w - 20), R(hud + 20, h - 20)
+            d.line(lay, (240, 240, 255, 90), (x - 4, y), (x + 4, y), 1)
+            d.line(lay, (240, 240, 255, 90), (x, y - 4), (x, y + 4), 1)
+
+    surf.blit(lay, (0, 0))
+
+
+def draw_background(screen, width, height, cell_size, hud_height, nokia_bg, nokia_grid, hud_bg, dark_green, biome=None):
     # The background is static, so render it once and just blit the cached
     # surface each frame. Redrawing ~50 grid lines every frame was the main
     # thing keeping the loop from holding a steady 60 FPS.
     global _BG_CACHE, _BG_KEY
-    key = (width, height, cell_size, hud_height, nokia_bg, nokia_grid, hud_bg, dark_green)
+    key = (width, height, cell_size, hud_height, nokia_bg, nokia_grid, hud_bg, dark_green, biome)
     if _BG_CACHE is None or _BG_KEY != key:
         surf = pygame.Surface((width, height))
         surf.fill(nokia_bg)
+        if biome:
+            _paint_biome(surf, biome, width, height, hud_height)
         pygame.draw.rect(surf, hud_bg, pygame.Rect(0, 0, width, hud_height))
         pygame.draw.line(surf, dark_green, (0, hud_height), (width, hud_height), 3)
         for x in range(0, width, cell_size):
@@ -172,10 +245,20 @@ def draw_fps(screen, clock, font):
 # Sprite-based drawing
 # ---------------------------------------------------------------------------
 
-def _segment_dir(from_cell, to_cell):
-    """Direction pointing from one grid cell toward an adjacent one."""
+def _segment_dir(from_cell, to_cell, cell=40):
+    """Direction pointing from one grid cell toward an adjacent one.
+    Wrap-aware: a jump larger than one cell means the snake crossed the border,
+    so the true adjacency is on the opposite side."""
     dx = to_cell[0] - from_cell[0]
     dy = to_cell[1] - from_cell[1]
+    if dx > cell:
+        dx = -cell
+    elif dx < -cell:
+        dx = cell
+    if dy > cell:
+        dy = -cell
+    elif dy < -cell:
+        dy = cell
     if dx > 0:
         return "RIGHT"
     if dx < 0:
@@ -183,6 +266,83 @@ def _segment_dir(from_cell, to_cell):
     if dy > 0:
         return "DOWN"
     return "UP"
+
+
+# Corner sprite is open LEFT+DOWN at rotation 0; pygame rotates CCW.
+_CORNER_ROT = {
+    frozenset(("LEFT", "DOWN")): 0,
+    frozenset(("DOWN", "RIGHT")): 90,
+    frozenset(("RIGHT", "UP")): 180,
+    frozenset(("UP", "LEFT")): 270,
+}
+
+
+def draw_snake(screen, snake, cell_size, sprites, direction, positions=None):
+    """Smooth-path snake: the body is a continuous rounded polyline through the
+    (interpolated) segment centres, so it bends fluidly at any sub-cell offset.
+    Layered strokes fake a lit tube: outline -> shade -> base -> gloss. The
+    expressive sprite head rides on top; the tail tapers procedurally."""
+    pos = positions if positions is not None else snake
+    n = len(pos)
+    base, dark, light = sprites.get("palette", ((95, 208, 104), (40, 110, 60), (180, 245, 168)))
+
+    half = cell_size // 2
+    pts = [(p[0] + half, p[1] + half) for p in pos]
+
+    # Split into runs at screen-wrap jumps so the tube never crosses the board.
+    runs, cur = [], [0]
+    for i in range(1, n):
+        if (abs(pts[i][0] - pts[i - 1][0]) > cell_size * 1.5 or
+                abs(pts[i][1] - pts[i - 1][1]) > cell_size * 1.5):
+            runs.append(cur)
+            cur = [i]
+        else:
+            cur.append(i)
+    runs.append(cur)
+
+    W = int(cell_size * 0.72)          # tube thickness
+
+    def wid(i):                        # per-point width (taper over last 3)
+        from_tail = (n - 1) - i
+        if from_tail >= 3:
+            return W
+        return max(6, int(W * (0.30 + 0.23 * from_tail)))
+
+    def stroke(color, scale, oy):
+        for run in runs:
+            for a, b in zip(run, run[1:]):
+                w = int(min(wid(a), wid(b)) * scale)
+                pygame.draw.line(screen, color,
+                                 (pts[a][0], pts[a][1] + oy),
+                                 (pts[b][0], pts[b][1] + oy), max(2, w))
+            for i in run:
+                r = max(1, int(wid(i) * scale) // 2)
+                pygame.draw.circle(screen, color, (int(pts[i][0]), int(pts[i][1] + oy)), r)
+
+    OUT = (16, 20, 28)
+    stroke(OUT, 1.24, 0)                                   # dark rim
+    stroke(dark, 1.0, 0)                                   # shaded under-body
+    stroke(base, 0.86, -int(cell_size * 0.05))             # main body, lifted
+    stroke(light, 0.34, -int(cell_size * 0.16))            # gloss ribbon
+
+    head_img = pygame.transform.rotate(sprites["head"], ROT[direction])
+    screen.blit(head_img, (int(pos[0][0]), int(pos[0][1])))
+    _draw_tongue(screen, pos[0], cell_size, direction)
+
+
+def draw_trail(screen, points, cell, color):
+    """A fading light ribbon behind the head: newest point brightest."""
+    n = len(points)
+    if n == 0:
+        return
+    r = max(4, int(cell * 0.30))
+    size = r * 2 + 2
+    for i, (px, py) in enumerate(points):
+        a = int(70 * (i + 1) / n)
+        dot = _scratch_alpha((size, size))
+        dot.fill((0, 0, 0, 0))
+        pygame.draw.circle(dot, (*color, a), (size // 2, size // 2), r)
+        screen.blit(dot, (int(px) - size // 2, int(py) - size // 2))
 
 
 def draw_food(screen, food, cell_size, sprites):
@@ -222,28 +382,20 @@ def draw_combo(screen, combo, combo_timer, window, font, color):
 
 
 def draw_enemies(screen, enemies, cell_size, sprites):
-    frame = current_frame(sprites["mine"])
-    r = cell_size // 2 - 3
     for enemy in enemies:
         x, y = enemy.pos
-        cx, cy = x + cell_size // 2, y + cell_size // 2
+        frame = current_frame(sprites.get(enemy.kind, sprites["mine"]))
 
         if enemy.kind == "blinker" and not enemy.is_solid():
             # Faded + hollow ring: currently safe to pass through.
             ghost = frame.copy()
             ghost.set_alpha(70)
             screen.blit(ghost, (x, y))
-            pygame.draw.circle(screen, (90, 150, 175), (cx, cy), r, 2)
+            cx, cy = x + cell_size // 2, y + cell_size // 2
+            pygame.draw.circle(screen, (90, 150, 175), (cx, cy), cell_size // 2 - 3, 2)
             continue
 
         screen.blit(frame, (x, y))
-        if enemy.kind == "drifter":
-            pygame.draw.circle(screen, (90, 200, 220), (cx, cy), r, 2)   # moving
-        elif enemy.kind == "blinker":
-            pygame.draw.circle(screen, (235, 120, 90), (cx, cy), r, 2)   # solid = deadly now
-        elif enemy.kind == "chaser":
-            pygame.draw.circle(screen, (235, 70, 70), (cx, cy), r, 2)        # hunter
-            pygame.draw.circle(screen, (235, 70, 70), (cx, cy), max(2, r - 5), 1)
 
 
 _DIR_VEC = {"RIGHT": (1, 0), "LEFT": (-1, 0), "UP": (0, -1), "DOWN": (0, 1)}
@@ -274,24 +426,7 @@ def _draw_tongue(screen, head_cell, cell_size, direction):
                      (ex + dx * fork + px * fork, ey + dy * fork + py * fork), 3)
 
 
-def draw_snake(screen, snake, cell_size, sprites, direction, positions=None):
-    # `positions` are smooth (interpolated) render coords parallel to `snake`.
-    # Sprite choice and rotation still come from the logical grid cells.
-    pos = positions if positions is not None else snake
-    last = len(snake) - 1
-
-    for index, part in enumerate(snake):
-        if index == 0:
-            image = pygame.transform.rotate(sprites["head"], ROT[direction])
-        elif index == last and last > 0:
-            tail_dir = _segment_dir(snake[index], snake[index - 1])
-            image = pygame.transform.rotate(sprites["tail"], ROT[tail_dir])
-        else:
-            image = sprites["body"]
-
-        screen.blit(image, (int(pos[index][0]), int(pos[index][1])))
-
-    _draw_tongue(screen, pos[0], cell_size, direction)
+# (draw_snake is defined above, next to the segment-direction helpers.)
 
 
 # ---------------------------------------------------------------------------
@@ -415,8 +550,9 @@ def draw_boss(screen, boss, cell):
     its glowing projectiles. Enrages (reddens, pulses faster) at low HP."""
     cx, cy = boss.center_px()
     enraged = boss.enraged
-    base = (255, 70, 70) if enraged else (200, 80, 230)
-    pulse = 0.5 + 0.5 * math.sin(boss.phase * (7.0 if enraged else 3.2))
+    last_stand = getattr(boss, "last_stand", False)
+    base = (255, 245, 235) if last_stand else ((255, 70, 70) if enraged else (200, 80, 230))
+    pulse = 0.5 + 0.5 * math.sin(boss.phase * (11.0 if last_stand else (7.0 if enraged else 3.2)))
     R = int(cell * 1.55)
 
     # Outer glow (a few stacked translucent circles that breathe with the pulse).
@@ -462,6 +598,16 @@ def draw_boss(screen, boss, cell):
         pygame.draw.circle(warn, (255, 235, 170, a), (c, c), ring_r, 4)
         pygame.draw.circle(warn, (255, 200, 120, a // 2), (c, c), max(2, ring_r - 6), 2)
         screen.blit(warn, (cx - c, cy - c))
+
+    # Last Stand: glowing ticks orbit at the spiral arms' current angles.
+    if last_stand:
+        arms = 2
+        for k in range(arms):
+            ang = boss.spiral_angle + 2 * math.pi * k / arms
+            tx = cx + math.cos(ang) * (R + 10)
+            ty = cy + math.sin(ang) * (R + 10)
+            pygame.draw.circle(screen, (255, 240, 200), (int(tx), int(ty)), 6)
+            pygame.draw.circle(screen, (255, 130, 90), (int(tx), int(ty)), 10, 2)
 
     # Projectiles: glowing pink orbs with a soft halo and a bright core.
     pr = max(4, int(cell * 0.30))

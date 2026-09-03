@@ -13,3 +13,13 @@ Thumbs.db
 # IDEs
 .vscode/
 .idea/
+# Estado local de partida
+scores.json
+skin.json
+
+# Empaquetados y previsualizaciones de trabajo
+*.zip
+snake_connectivity_preview.png
+
+# Editor
+*.code-workspace
